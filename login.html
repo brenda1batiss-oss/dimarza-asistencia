@@ -67,26 +67,41 @@ const SEED_PERSONAL = [
   { dni:'12345678', nombres:'Alejandro',   apellidos:'García Quispe', cargo:'Operador de Perforadora', empresa:'DIMARZA SAC', unidad:'UM-QUE', estado:'Activo' },
 ];
 
-// ── Inicializar DB si está vacía o en formato viejo ──
+// ── Inicializar DB — siempre garantiza que el admin existe ──
 function initDB() {
-  const raw = localStorage.getItem(DB_SUPERVISORES);
+  // Limpiar sessionStorage viejo
+  sessionStorage.removeItem(SESSION_KEY);
+
   let sups = [];
-  try { sups = JSON.parse(raw || '[]'); } catch(e) { sups = []; }
-  // Resetear si formato viejo (tiene email) o vacío
-  if (!sups.length || sups[0].email !== undefined) {
+  try { sups = JSON.parse(localStorage.getItem(DB_SUPERVISORES) || '[]'); } catch(e) { sups = []; }
+
+  // Condiciones para resetear completamente:
+  // 1. Vacío
+  // 2. Formato viejo con email
+  // 3. No existe ningún Administrador
+  // 4. El admin seed (00000001) existe pero con PIN diferente al original Y no hay otro admin
+  const tieneAdmin = sups.some(s => s.rol === 'Administrador' && s.activo !== false);
+  const formatoViejo = sups.length > 0 && sups[0].email !== undefined;
+
+  if (!sups.length || formatoViejo || !tieneAdmin) {
     localStorage.setItem(DB_SUPERVISORES, JSON.stringify(SEED_SUPERVISORES));
+    sups = SEED_SUPERVISORES;
   } else {
     // Normalizar todos los valores a string
-    const norm = sups.map(s => ({
+    sups = sups.map(s => ({
       ...s,
       dni: String(s.dni || '').trim(),
       pin: String(s.pin || '').trim(),
       activo: s.activo !== false
     }));
-    localStorage.setItem(DB_SUPERVISORES, JSON.stringify(norm));
+    localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups));
   }
+
   if (!localStorage.getItem(DB_PERSONAL))  localStorage.setItem(DB_PERSONAL,  JSON.stringify(SEED_PERSONAL));
   if (!localStorage.getItem(DB_REGISTROS)) localStorage.setItem(DB_REGISTROS, JSON.stringify([]));
+
+  // DEBUG: mostrar en consola qué hay guardado
+  console.log('Supervisores en DB:', JSON.parse(localStorage.getItem(DB_SUPERVISORES)));
 }
 
 // ── Si ya hay sesión activa → redirigir ──
@@ -136,7 +151,10 @@ function intentarLogin() {
       if (!user) {
         document.getElementById('btnLogin').disabled = false;
         document.getElementById('spinner').classList.remove('show');
-        mostrarError('DNI o PIN incorrecto. Verifique e intente nuevamente.');
+        // Mostrar qué hay en la DB para debugging
+        const dbInfo = sups.map(s => `DNI:${s.dni} PIN:${s.pin} ROL:${s.rol}`).join(' | ');
+        mostrarError(`DNI o PIN incorrecto.\nDB tiene: ${sups.length} usuario(s)`);
+        console.log('DB actual:', sups);
         return;
       }
       // Guardar sesión
@@ -154,6 +172,26 @@ function intentarLogin() {
 // Enter en PIN → login
 document.getElementById('pinField').addEventListener('keydown', e => { if (e.key==='Enter') intentarLogin(); });
 document.getElementById('dniField').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('pinField').focus(); });
+
+// Toque secreto: 5 taps en el logo → limpiar DB
+let tapCount = 0, tapTimer;
+document.querySelector('.logo-img').addEventListener('click', () => {
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => { tapCount = 0; }, 2000);
+  if (tapCount >= 5) {
+    tapCount = 0;
+    localStorage.setItem(DB_SUPERVISORES, JSON.stringify(SEED_SUPERVISORES));
+    localStorage.removeItem(DB_PERSONAL);
+    localStorage.removeItem(DB_REGISTROS);
+    document.getElementById('errBox').textContent = '✓ Datos restablecidos. Use DNI 00000001 / PIN 1234';
+    document.getElementById('errBox').style.background = 'rgba(0,201,122,0.1)';
+    document.getElementById('errBox').style.borderColor = '#00C97A';
+    document.getElementById('errBox').style.color = '#00C97A';
+    document.getElementById('errBox').classList.add('show');
+    document.getElementById('dniField').value = '00000001';
+  }
+});
 
 // ── Inicio ──
 initDB();
