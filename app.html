@@ -499,7 +499,10 @@ const DB_SUPERVISORES = 'db_supervisores';
 const DB_REGISTROS    = 'db_registros';
 const UNIDAD_NOMBRE   = 'AngloAmerican Quellaveco';
 const UNIDAD_ID       = 'UM-QUE';
-const SHEETS_URL      = 'https://script.google.com/macros/s/AKfycbw_EYKvhwneblE737ABSb7O4FlWQzba85y0YHbdZC0JBZLV_5_0c5jf8QpKYcc3ihb-/exec';
+const SB_BASE = 'https://api.sheetbest.com/sheets/0aede14a-e775-4bb8-abf9-ae1549aaa448';
+const SB_SUP  = 'https://api.sheetbest.com/sheets/0aede14a-e775-4bb8-abf9-ae1549aaa448/tabs/Supervisores';
+const SB_PER  = 'https://api.sheetbest.com/sheets/0aede14a-e775-4bb8-abf9-ae1549aaa448/tabs/Personal';
+const SB_REG  = 'https://api.sheetbest.com/sheets/0aede14a-e775-4bb8-abf9-ae1549aaa448/tabs/Registros';
 
 const SEED_SUPERVISORES = [
   { dni:'00000001', nombre:'Administrador Dimarza', pin:'1234', rol:'Administrador', activo:true },
@@ -576,13 +579,19 @@ async function cargarSesion() {
     const s = JSON.parse(sessionStorage.getItem('dmz_session') || 'null');
     if (!s || !s.dni) { window.location.href = 'login.html'; return; }
 
-    // Si hay conexión, verificar contra Sheets y actualizar caché
+    // SheetBest — actualizar supervisores
     if (navigator.onLine) {
       try {
-        const res  = await fetch(SHEETS_URL + '?action=getSupervisores', {redirect:'follow'});
+        const res  = await fetch(SB_SUP, {cache:'no-store'});
         const data = await res.json();
-        if (data.success && data.supervisores?.length) {
-          const norm = data.supervisores.map(u => ({...u, dni:String(u.dni).trim(), pin:String(u.pin).trim()}));
+        if (Array.isArray(data) && data.length) {
+          const norm = data.map(u => ({
+            dni:    String(u.DNI    || u.dni    || '').trim(),
+            nombre: String(u.Nombre || u.nombre || '').trim(),
+            pin:    String(u.PIN    || u.pin    || '').trim(),
+            rol:    String(u.Rol    || u.rol    || 'Supervisor').trim(),
+            activo: String(u.Activo || u.activo || 'TRUE').toUpperCase() !== 'FALSE'
+          }));
           localStorage.setItem(DB_SUPERVISORES, JSON.stringify(norm));
         }
       } catch(e) { /* usar caché */ }
@@ -923,11 +932,17 @@ async function renderSupList() {
   let sups = [];
   if (isOnline) {
     try {
-      const res  = await fetch(SHEETS_URL + '?action=getSupervisores', {redirect:'follow'});
+      const res  = await fetch(SB_SUP, {cache:'no-store'});
       const data = await res.json();
-      if (data.success && data.supervisores?.length) {
-        sups = data.supervisores.map(s => ({...s, dni:String(s.dni).trim(), pin:String(s.pin).trim()}));
-        localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups)); // actualizar caché
+      if (Array.isArray(data) && data.length) {
+        sups = data.map(s => ({
+          dni:    String(s.DNI    || s.dni    || '').trim(),
+          nombre: String(s.Nombre || s.nombre || '').trim(),
+          pin:    String(s.PIN    || s.pin    || '').trim(),
+          rol:    String(s.Rol    || s.rol    || 'Supervisor').trim(),
+          activo: String(s.Activo || s.activo || 'TRUE').toUpperCase() !== 'FALSE'
+        }));
+        localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups));
       }
     } catch(e) { sups = getSupervisores(); }
   } else {
@@ -965,8 +980,9 @@ async function resetearPin(dni) {
   // Actualizar en Sheets
   if (isOnline) {
     try {
-      await fetch(SHEETS_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'},
-        body: JSON.stringify({action:'updatePin', dni, newPin: p})});
+      await fetch(SB_SUP + '/DNI/' + dni, {method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({PIN: p})});
     } catch(e) { showToast('⚠ Sin conexión — cambio solo local'); }
   }
   // Actualizar caché local
@@ -994,14 +1010,12 @@ async function agregarSupervisor() {
   const nuevo = {dni, nombre, pin, rol, activo:true};
   showToast('Guardando en Sheets...');
   // Guardar en Sheets
-  let sheetsOk = false;
   if (isOnline) {
     try {
-      const res  = await fetch(SHEETS_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'},
-        body: JSON.stringify({action:'addSupervisor', supervisor: nuevo})});
-      const data = await res.json();
-      sheetsOk   = data.success;
-      if (!sheetsOk) { showToast('⚠ Error en Sheets: ' + data.error); return; }
+      const row = {DNI: nuevo.dni, Nombre: nuevo.nombre, PIN: nuevo.pin, Rol: nuevo.rol, Activo: 'TRUE'};
+      await fetch(SB_SUP, {method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(row)});
     } catch(e) { showToast('⚠ Sin conexión — no se pudo guardar'); return; }
   } else {
     showToast('⚠ Sin conexión — conéctese para agregar supervisores'); return;
@@ -1026,8 +1040,7 @@ async function eliminarSupervisor(dni, nombre, rol) {
   showToast('Eliminando...');
   if (isOnline) {
     try {
-      await fetch(SHEETS_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'},
-        body: JSON.stringify({action:'deleteSupervisor', dni})});
+      await fetch(SB_SUP + '/DNI/' + dni, {method:'DELETE'});
     } catch(e) { showToast('⚠ Sin conexión'); return; }
   } else { showToast('⚠ Sin conexión'); return; }
   // Actualizar caché local
@@ -1061,8 +1074,9 @@ async function cambiarPin() {
   // Guardar en Sheets
   if (isOnline) {
     try {
-      await fetch(SHEETS_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'},
-        body: JSON.stringify({action:'updatePin', dni: currentUser.dni, newPin: nuevo})});
+      await fetch(SB_SUP + '/DNI/' + currentUser.dni, {method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({PIN: nuevo})});
     } catch(e) { showToast('⚠ Sin conexión'); return; }
   } else { showToast('⚠ Sin conexión — no se puede cambiar PIN'); return; }
   // Actualizar caché local y sesión
@@ -1229,7 +1243,7 @@ function resolverConflicto() {
   mostrarConflicto();
 }
 
-function aplicarImport(nuevos) {
+async function aplicarImport(nuevos) {
   const personal = getPersonal();
   let agregados = 0, actualizados = 0;
   nuevos.forEach(n => {
@@ -1239,8 +1253,19 @@ function aplicarImport(nuevos) {
   });
   savePersonal(personal);
   document.getElementById('progressFill').style.width='100%';
-  document.getElementById('uploadStatus').textContent =
-    `✓ ${agregados} agregados, ${actualizados} actualizados`;
+  document.getElementById('uploadStatus').textContent = 'Guardando en Sheets...';
+  // Push to SheetBest
+  if (isOnline && nuevos.length) {
+    try {
+      for (const p of nuevos) {
+        const row = {DNI:p.dni, Nombres:p.nombres, Apellidos:p.apellidos, Cargo:p.cargo,
+          Empresa:p.empresa, Unidad_Minera:p.unidad, Estado:p.estado};
+        await fetch(SB_PER, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(row)});
+      }
+    } catch(e) { console.warn('SheetBest personal push error:', e); }
+  }
+  document.getElementById('progressFill').style.width='100%';
+  document.getElementById('uploadStatus').textContent = `✓ ${agregados} agregados, ${actualizados} actualizados`;
   setTimeout(()=>{
     document.getElementById('uploadProgress').style.display='none';
     closeModal('modalUpload');
@@ -1256,23 +1281,33 @@ async function syncFromSheets() {
   if (!isOnline) return;
   try {
     updateSyncUI('syncing');
-    const res  = await fetch(`${SHEETS_URL}?action=getData`, {redirect:'follow'});
-    const data = await res.json();
-    // Siempre actualizar personal desde Sheets
-    if (data.personal?.length) {
-      localStorage.setItem(DB_PERSONAL, JSON.stringify(
-        data.personal.map(p => ({...p, dni:String(p.dni||'').trim()}))
-      ));
-    }
-    // Siempre actualizar supervisores desde Sheets (Sheets es la fuente de verdad)
-    if (data.supervisores?.length) {
-      const norm = data.supervisores.map(s => ({
-        ...s,
-        dni: String(s.dni||'').trim(),
-        pin: String(s.pin||'').trim(),
-        activo: s.activo !== false
+    const [resS, resP] = await Promise.all([
+      fetch(SB_SUP, {cache:'no-store'}),
+      fetch(SB_PER, {cache:'no-store'})
+    ]);
+    const supData = await resS.json();
+    const perData = await resP.json();
+    if (Array.isArray(supData) && supData.length) {
+      const norm = supData.map(s => ({
+        dni:    String(s.DNI    || s.dni    || '').trim(),
+        nombre: String(s.Nombre || s.nombre || '').trim(),
+        pin:    String(s.PIN    || s.pin    || '').trim(),
+        rol:    String(s.Rol    || s.rol    || 'Supervisor').trim(),
+        activo: String(s.Activo || s.activo || 'TRUE').toUpperCase() !== 'FALSE'
       }));
       localStorage.setItem(DB_SUPERVISORES, JSON.stringify(norm));
+    }
+    if (Array.isArray(perData) && perData.length) {
+      const norm = perData.map(p => ({
+        dni:      String(p.DNI           || p.dni      || '').trim(),
+        nombres:  String(p.Nombres       || p.nombres  || '').trim(),
+        apellidos:String(p.Apellidos     || p.apellidos|| '').trim(),
+        cargo:    String(p.Cargo         || p.cargo    || '').trim(),
+        empresa:  String(p.Empresa       || p.empresa  || '').trim(),
+        unidad:   String(p.Unidad_Minera || p.unidad   || 'UM-QUE').trim(),
+        estado:   String(p.Estado        || p.estado   || 'Activo').trim(),
+      }));
+      localStorage.setItem(DB_PERSONAL, JSON.stringify(norm));
     }
     updateSyncUI('online');
     return true;
@@ -1281,9 +1316,16 @@ async function syncFromSheets() {
 
 async function pushRegistroToSheets(r) {
   try {
-    const res = await fetch(SHEETS_URL,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addRegistro',registro:r})});
-    const d = await res.json();
-    return d.success===true;
+    const row = {
+      ID_Registro: r.id, DNI: r.dni, Nombres: r.nombres, Apellidos: r.apellidos,
+      Cargo: r.cargo, Unidad: r.unidad, DNI_Supervisor: r.dniSupervisor,
+      Nombre_Supervisor: r.nombreSupervisor, Fecha: r.fecha, Hora: r.hora,
+      Turno: r.turno, Metodo: r.metodo
+    };
+    await fetch(SB_REG, {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(row)});
+    return true;
   } catch(e){ return false; }
 }
 
