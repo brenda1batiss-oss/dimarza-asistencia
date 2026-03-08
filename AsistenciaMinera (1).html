@@ -9,8 +9,7 @@
 <title>Dimarza — Control de Asistencia</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 /* ═══ RESET & BASE ═══════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -371,9 +370,16 @@ body::before {
   box-shadow: 0 0 8px var(--ore);
 }
 @keyframes scanLine { 0%{top:10%} 100%{top:90%} }
-#quaggaTarget { width:100%; height:240px; background:#000; position:relative; }
-#quaggaTarget canvas { position:absolute; top:0; left:0; }
-#quaggaTarget video { width:100%; height:100%; object-fit:cover; }
+/* Html5QrCode — ocultar UI por defecto y forzar tamaño */
+#html5qr-scanner video {
+  width: 100% !important; height: 240px !important;
+  object-fit: cover !important; position: absolute; top: 0; left: 0;
+}
+#html5qr-scanner__dashboard { display: none !important; }
+#html5qr-scanner__status_span { display: none !important; }
+#html5qr-scanner img { display: none !important; }
+#html5qr-scanner canvas { position: absolute; top: 0; left: 0; opacity: 0.3; }
+#html5qr-scanner { position: relative; overflow: hidden; }
 .scan-hint {
   font-size: 12px; color: var(--fog); font-family: var(--font-mono);
   text-align: center; letter-spacing: 1px; padding: 8px 0;
@@ -750,11 +756,11 @@ body::before {
 
     <!-- Camera scanner frame -->
     <div class="scanner-frame scanner-corners scanner-corners-bottom">
-      <div id="quaggaTarget">
+      <div id="html5qr-scanner" style="width:100%;height:240px;background:#000;position:relative;overflow:hidden;">
         <div class="scan-line"></div>
       </div>
     </div>
-    <div class="scan-hint">Apunte al código de barras en la parte trasera del DNI</div>
+    <div class="scan-hint" id="scanHint">Apunte al código de barras — Code 128 o PDF417</div>
 
     <div class="divider-or"><span>O INGRESE MANUALMENTE</span></div>
 
@@ -1319,95 +1325,115 @@ function confirmRegister() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ZXING SCANNER — Reemplaza Quagga, mejor detección en móvil
+// HTML5-QRCODE SCANNER — Más confiable en Android Chrome
+// Soporta: Code128, Code39, PDF417, QR, EAN, ITF
 // ═══════════════════════════════════════════════════════════════════════════
-let zxingReader = null;
-let zxingRunning = false;
+let html5Scanner = null;
+let scannerRunning = false;
 
-function startQuagga() { startScanner(); } // alias para compatibilidad
-function stopQuagga() { stopScanner(); }   // alias para compatibilidad
+function startQuagga() { startScanner(); }
+function stopQuagga()  { stopScanner();  }
 
 async function startScanner() {
-  if (zxingRunning) return;
+  if (scannerRunning) return;
   resetConfirmBtn();
 
-  const videoEl = document.getElementById('scannerVideo');
+  // Limpiar el contenedor
+  const container = document.getElementById('html5qr-scanner');
+  container.innerHTML = '<div class="scan-line"></div>';
 
-  // Mostrar elemento video en lugar del div quagga
-  const target = document.getElementById('quaggaTarget');
-  target.innerHTML = `
-    <video id="scannerVideo" autoplay muted playsinline
-      style="width:100%;height:240px;object-fit:cover;background:#000;display:block;"></video>
-    <div class="scan-line"></div>
-  `;
-
-  // Intentar ZXing primero
-  if (typeof ZXing !== 'undefined') {
-    try {
-      zxingReader = new ZXing.BrowserMultiFormatReader();
-      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-
-      // Preferir cámara trasera
-      let deviceId = undefined;
-      const back = devices.find(d =>
-        d.label.toLowerCase().includes('back') ||
-        d.label.toLowerCase().includes('rear') ||
-        d.label.toLowerCase().includes('environment') ||
-        d.label.toLowerCase().includes('trasera')
-      );
-      if (back) deviceId = back.deviceId;
-      else if (devices.length > 0) deviceId = devices[devices.length - 1].deviceId;
-
-      const videoTarget = document.getElementById('scannerVideo');
-      await zxingReader.decodeFromVideoDevice(deviceId, videoTarget, (result, err) => {
-        if (result) {
-          const raw = result.getText();
-          stopScanner();
-          scanMethod = 'Scanner';
-          const dni = extractDNI(raw);
-          document.getElementById('dniInput').value = dni;
-          searchDNI(raw, 'Scanner');
-          showToast('📷 DNI escaneado: ' + dni);
-          if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
-        }
-      });
-      zxingRunning = true;
-      showToast('📷 Cámara lista — apunte al código');
-      return;
-    } catch(e) {
-      console.warn('ZXing error:', e);
-      showToast('⚠ Usando entrada manual');
-    }
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('⚠ Librería no cargada — use ingreso manual');
+    return;
   }
 
-  // Fallback: pedir cámara directamente con getUserMedia
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    const vid = document.getElementById('scannerVideo');
-    vid.srcObject = stream;
-    vid.play();
-    zxingRunning = true;
-    showToast('📷 Cámara activa — use ingreso manual');
-  } catch(e) {
-    showToast('⚠ Sin acceso a cámara — use ingreso manual');
-    console.warn('Camera error:', e);
+    html5Scanner = new Html5Qrcode('html5qr-scanner', { verbose: false });
+
+    const config = {
+      fps: 15,
+      qrbox: { width: 280, height: 120 },   // rectángulo ancho para barcodes
+      aspectRatio: 2.0,
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.PDF_417,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.QR_CODE,
+      ],
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+      rememberLastUsedCamera: false,
+      showTorchButtonIfSupported: true,
+    };
+
+    // Buscar cámara trasera explícitamente
+    const devices = await Html5Qrcode.getCameras();
+    let cameraId = null;
+    if (devices && devices.length > 0) {
+      // Preferir cámara con "back", "rear", "environment", o la última (que suele ser trasera)
+      const back = devices.find(d =>
+        /back|rear|environment|trasera|posterior/i.test(d.label)
+      );
+      cameraId = back ? back.id : devices[devices.length - 1].id;
+    }
+
+    const onSuccess = (decodedText) => {
+      stopScanner();
+      scanMethod = 'Scanner';
+      const dni = extractDNI(decodedText);
+      document.getElementById('dniInput').value = dni;
+      document.getElementById('scanHint').textContent = '✓ Código detectado: ' + dni;
+      searchDNI(decodedText, 'Scanner');
+      showToast('📷 Escaneado: ' + dni);
+      if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+    };
+
+    const onError = () => {}; // silencioso — errores de frame son normales
+
+    if (cameraId) {
+      await html5Scanner.start(cameraId, config, onSuccess, onError);
+    } else {
+      await html5Scanner.start(
+        { facingMode: 'environment' }, config, onSuccess, onError
+      );
+    }
+
+    scannerRunning = true;
+
+    // Ocultar UI innecesaria de Html5QrCode
+    setTimeout(() => {
+      const unwanted = document.querySelectorAll(
+        '#html5qr-scanner__dashboard, #html5qr-scanner__status_span, #html5qr-scanner img'
+      );
+      unwanted.forEach(el => { if(el) el.style.display = 'none'; });
+      // Asegurar que el video ocupa todo el contenedor
+      const vid = document.querySelector('#html5qr-scanner video');
+      if (vid) {
+        vid.style.cssText = 'width:100%!important;height:240px!important;object-fit:cover!important;position:absolute;top:0;left:0;';
+      }
+    }, 800);
+
+    showToast('📷 Cámara lista — apunte al código');
+
+  } catch(err) {
+    console.warn('Scanner error:', err);
+    if (err.toString().includes('Permission')) {
+      showToast('⚠ Permiso de cámara denegado');
+    } else {
+      showToast('⚠ Cámara no disponible — use ingreso manual');
+    }
   }
 }
 
-function stopScanner() {
-  if (zxingReader) {
-    try { zxingReader.reset(); } catch(e) {}
-    zxingReader = null;
+async function stopScanner() {
+  if (html5Scanner && scannerRunning) {
+    try { await html5Scanner.stop(); } catch(e) {}
+    try { html5Scanner.clear(); } catch(e) {}
   }
-  // Detener stream del video
-  const vid = document.getElementById('scannerVideo');
-  if (vid && vid.srcObject) {
-    vid.srcObject.getTracks().forEach(t => t.stop());
-    vid.srcObject = null;
-  }
-  zxingRunning = false;
+  html5Scanner = null;
+  scannerRunning = false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
