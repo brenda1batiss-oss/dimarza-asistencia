@@ -523,17 +523,14 @@ const saveRegistros   = d  => localStorage.setItem(DB_REGISTROS,    JSON.stringi
 const getTodayStr     = () => new Date().toISOString().slice(0,10);
 
 function initDB() {
-  const sups = JSON.parse(localStorage.getItem(DB_SUPERVISORES) || '[]');
-  // Migrar formato antiguo (email→dni) o vacío
-  if (!sups.length || sups[0].email !== undefined) {
-    saveSupervisores(SEED_SUPERVISORES);
-  } else {
-    // Asegurar que todos los PINs sean strings
-    const fixed = sups.map(s => ({...s, pin: String(s.pin||'').trim(), dni: String(s.dni||'').trim()}));
-    saveSupervisores(fixed);
-  }
+  // Solo inicializar Personal y Registros si no existen
+  // Los supervisores NUNCA se tocan aquí — vienen de Sheets
   if (!localStorage.getItem(DB_PERSONAL))  savePersonal(SEED_PERSONAL);
   if (!localStorage.getItem(DB_REGISTROS)) saveRegistros([]);
+  // Si no hay caché de supervisores, poner seed temporal hasta que Sheets responda
+  if (!localStorage.getItem(DB_SUPERVISORES)) {
+    localStorage.setItem(DB_SUPERVISORES, JSON.stringify(SEED_SUPERVISORES));
+  }
 }
 
 
@@ -574,17 +571,34 @@ function goToScan() {
 // ═══════════════════════════════════════════════════════
 // SESSION — login está en login.html
 // ═══════════════════════════════════════════════════════
-function cargarSesion() {
+async function cargarSesion() {
   try {
     const s = JSON.parse(sessionStorage.getItem('dmz_session') || 'null');
     if (!s || !s.dni) { window.location.href = 'login.html'; return; }
-    // Verificar que el usuario sigue existiendo con ese pin
+
+    // Si hay conexión, verificar contra Sheets y actualizar caché
+    if (navigator.onLine) {
+      try {
+        const res  = await fetch(SHEETS_URL + '?action=getSupervisores', {redirect:'follow'});
+        const data = await res.json();
+        if (data.success && data.supervisores?.length) {
+          const norm = data.supervisores.map(u => ({...u, dni:String(u.dni).trim(), pin:String(u.pin).trim()}));
+          localStorage.setItem(DB_SUPERVISORES, JSON.stringify(norm));
+        }
+      } catch(e) { /* usar caché */ }
+    }
+
     const sups = getSupervisores();
-    const user = sups.find(u => String(u.dni).trim()===String(s.dni).trim() && String(u.pin).trim()===String(s.pin).trim() && u.activo!==false);
+    const user = sups.find(u =>
+      String(u.dni).trim() === String(s.dni).trim() &&
+      String(u.pin).trim() === String(s.pin).trim() &&
+      u.activo !== false
+    );
     if (!user) { window.location.href = 'login.html'; return; }
+
     currentUser = {...user};
     const initials = user.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    if (user.rol==='Administrador') {
+    if (user.rol === 'Administrador') {
       document.getElementById('dashAvatar').textContent = initials;
       showDash();
     } else {
@@ -895,68 +909,132 @@ function openModal(id) {
 }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-function renderSupList() {
-  const sups = getSupervisores();
-  document.getElementById('supList').innerHTML = sups.map((s,i) => `
+// ── Guardar supervisores siempre en Sheets Y en localStorage (caché) ──
+async function guardarSupEnSheets(sups) {
+  localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups));
+  // Sincronizar cada supervisor con Sheets (no bloqueante)
+  // La sincronización real se hace operación por operación (add/delete/updatePin)
+}
+
+async function renderSupList() {
+  const el = document.getElementById('supList');
+  el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--fog);font-family:var(--font-mono);font-size:12px">Cargando...</div>';
+  // Siempre leer desde Sheets si hay conexión
+  let sups = [];
+  if (isOnline) {
+    try {
+      const res  = await fetch(SHEETS_URL + '?action=getSupervisores', {redirect:'follow'});
+      const data = await res.json();
+      if (data.success && data.supervisores?.length) {
+        sups = data.supervisores.map(s => ({...s, dni:String(s.dni).trim(), pin:String(s.pin).trim()}));
+        localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups)); // actualizar caché
+      }
+    } catch(e) { sups = getSupervisores(); }
+  } else {
+    sups = getSupervisores();
+  }
+  if (!sups.length) { el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--fog);font-family:var(--font-mono);font-size:12px">Sin supervisores registrados</div>'; return; }
+  el.innerHTML = sups.map((s,i) => `
     <div class="sup-item">
       <div class="sup-avatar" style="background:${s.rol==='Administrador'?'var(--ore)':'var(--steel)'}">${s.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
       <div class="sup-info">
         <div class="sup-name">${s.nombre}</div>
         <div class="sup-meta">DNI: ${s.dni} · ${s.rol}</div>
         <div class="sup-meta" style="color:var(--caution);margin-top:2px">
-          PIN: <span id="pin-${i}" style="letter-spacing:2px">••••</span>
-          <button onclick="togglePin(${i},'${s.pin}')" style="background:none;border:none;color:var(--fog);cursor:pointer;font-size:10px;margin-left:4px">👁</button>
-          <button onclick="resetearPin(${i})" style="background:none;border:1px solid rgba(245,166,35,0.4);border-radius:3px;color:var(--caution);font-size:10px;padding:1px 6px;cursor:pointer;margin-left:4px">Cambiar</button>
+          PIN: <span id="pin-show-${i}" style="letter-spacing:2px">••••</span>
+          <button onclick="togglePin(${i},'${s.pin}')" style="background:none;border:none;color:var(--fog);cursor:pointer;font-size:11px;margin-left:4px">👁</button>
+          <button onclick="resetearPin('${s.dni}')" style="background:none;border:1px solid rgba(245,166,35,0.4);border-radius:3px;color:var(--caution);font-size:10px;padding:2px 7px;cursor:pointer;margin-left:4px">Cambiar PIN</button>
         </div>
       </div>
-      <button class="btn-del" onclick="eliminarSupervisor(${i})">✕</button>
+      <button class="btn-del" onclick="eliminarSupervisor('${s.dni}','${s.nombre}','${s.rol}')">✕</button>
     </div>`).join('');
 }
 
 function togglePin(idx, pin) {
-  const el = document.getElementById('pin-'+idx);
+  const el = document.getElementById('pin-show-'+idx);
   if (!el) return;
   el.textContent = el.textContent.includes('•') ? pin : '••••';
 }
 
-function resetearPin(idx) {
-  const nuevo = prompt('Ingrese el nuevo PIN para este supervisor (mínimo 4 dígitos):');
+async function resetearPin(dni) {
+  const nuevo = prompt('Nuevo PIN para DNI ' + dni + ' (mínimo 4 dígitos):');
   if (!nuevo) return;
-  if (nuevo.length < 4) { showToast('⚠ PIN muy corto'); return; }
-  const sups = getSupervisores();
-  sups[idx].pin = String(nuevo).trim();
-  saveSupervisores(sups);
+  const p = String(nuevo).trim();
+  if (p.length < 4) { showToast('⚠ PIN muy corto'); return; }
+  showToast('Guardando...');
+  // Actualizar en Sheets
+  if (isOnline) {
+    try {
+      await fetch(SHEETS_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({action:'updatePin', dni, newPin: p})});
+    } catch(e) { showToast('⚠ Sin conexión — cambio solo local'); }
+  }
+  // Actualizar caché local
+  const sups = getSupervisores().map(s => s.dni===dni ? {...s, pin:p} : s);
+  localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups));
+  // Si es el usuario actual, actualizar sesión
+  if (currentUser?.dni === dni) {
+    currentUser.pin = p;
+    sessionStorage.setItem('dmz_session', JSON.stringify({...currentUser, pin:p}));
+  }
   showToast('✓ PIN actualizado');
   renderSupList();
 }
 
-function agregarSupervisor() {
-  const dni    = document.getElementById('nsDni').value.trim().replace(/\\D/g,'');
+async function agregarSupervisor() {
+  const dni    = document.getElementById('nsDni').value.trim().replace(/\D/g,'');
   const nombre = document.getElementById('nsNombre').value.trim();
-  const pin    = document.getElementById('nsPin').value.trim();
+  const pin    = String(document.getElementById('nsPin').value.trim());
   const rol    = document.getElementById('nsRol').value;
-  if (dni.length<7) { showToast('⚠ DNI inválido'); return; }
-  if (!nombre)      { showToast('⚠ Ingrese nombre'); return; }
-  if (pin.length<4) { showToast('⚠ PIN mínimo 4 dígitos'); return; }
+  if (dni.length<7)  { showToast('⚠ DNI inválido'); return; }
+  if (!nombre)       { showToast('⚠ Ingrese nombre'); return; }
+  if (pin.length<4)  { showToast('⚠ PIN mínimo 4 dígitos'); return; }
   const sups = getSupervisores();
   if (sups.find(s=>s.dni===dni)) { showToast('⚠ DNI ya registrado'); return; }
-  sups.push({ dni: String(dni), nombre, pin: String(pin), rol, activo:true });
-  saveSupervisores(sups);
+  const nuevo = {dni, nombre, pin, rol, activo:true};
+  showToast('Guardando en Sheets...');
+  // Guardar en Sheets
+  let sheetsOk = false;
+  if (isOnline) {
+    try {
+      const res  = await fetch(SHEETS_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({action:'addSupervisor', supervisor: nuevo})});
+      const data = await res.json();
+      sheetsOk   = data.success;
+      if (!sheetsOk) { showToast('⚠ Error en Sheets: ' + data.error); return; }
+    } catch(e) { showToast('⚠ Sin conexión — no se pudo guardar'); return; }
+  } else {
+    showToast('⚠ Sin conexión — conéctese para agregar supervisores'); return;
+  }
+  // Actualizar caché local
+  sups.push(nuevo);
+  localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups));
   ['nsDni','nsNombre','nsPin'].forEach(id=>document.getElementById(id).value='');
-  showToast('✓ Supervisor agregado');
+  showToast('✓ Supervisor agregado en Sheets');
   renderSupList();
 }
 
-function eliminarSupervisor(idx) {
-  const sups = getSupervisores();
-  if (sups[idx].rol==='Administrador' && sups.filter(s=>s.rol==='Administrador').length<=1) {
-    showToast('⚠ Debe existir al menos 1 administrador'); return;
+async function eliminarSupervisor(dni, nombre, rol) {
+  if (rol==='Administrador') {
+    const sups = getSupervisores();
+    if (sups.filter(s=>s.rol==='Administrador').length<=1) {
+      showToast('⚠ Debe existir al menos 1 administrador'); return;
+    }
   }
-  if (sups[idx].dni === currentUser?.dni) { showToast('⚠ No puedes eliminarte a ti mismo'); return; }
-  sups.splice(idx,1);
-  saveSupervisores(sups);
+  if (dni === currentUser?.dni) { showToast('⚠ No puedes eliminarte a ti mismo'); return; }
+  if (!confirm('¿Eliminar a ' + nombre + '?')) return;
+  showToast('Eliminando...');
+  if (isOnline) {
+    try {
+      await fetch(SHEETS_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({action:'deleteSupervisor', dni})});
+    } catch(e) { showToast('⚠ Sin conexión'); return; }
+  } else { showToast('⚠ Sin conexión'); return; }
+  // Actualizar caché local
+  const sups = getSupervisores().filter(s=>s.dni!==dni);
+  localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups));
+  showToast('✓ Supervisor eliminado');
   renderSupList();
-  showToast('Supervisor eliminado');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -971,21 +1049,27 @@ function showPinScreen() {
   showScreen('pinScreen');
 }
 function volverDePin() { currentUser?.rol==='Administrador'?showDash():showHome(); }
-function cambiarPin() {
-  const actual=document.getElementById('pinActual').value.trim();
-  const nuevo=document.getElementById('pinNuevo').value.trim();
-  const conf=document.getElementById('pinConfirm').value.trim();
+async function cambiarPin() {
+  const actual = document.getElementById('pinActual').value.trim();
+  const nuevo  = document.getElementById('pinNuevo').value.trim();
+  const conf   = document.getElementById('pinConfirm').value.trim();
   document.getElementById('pinError').classList.remove('show');
   document.getElementById('pinSuccess').classList.remove('show');
-  if (actual!==currentUser.pin) { document.getElementById('pinError').classList.add('show'); return; }
-  if (nuevo.length<4) { showToast('⚠ PIN mínimo 4 dígitos'); return; }
-  if (nuevo!==conf)   { showToast('⚠ Los PINs no coinciden'); return; }
-  const sups=getSupervisores();
-  const idx=sups.findIndex(s=>s.dni===currentUser.dni);
-  sups[idx].pin=nuevo; currentUser.pin=nuevo;
-  saveSupervisores(sups);
-  // Actualizar sesión con nuevo PIN
-  sessionStorage.setItem('dmz_session', JSON.stringify({ dni: currentUser.dni, pin: nuevo, rol: currentUser.rol, nombre: currentUser.nombre }));
+  if (actual !== currentUser.pin) { document.getElementById('pinError').classList.add('show'); return; }
+  if (nuevo.length < 4) { showToast('⚠ PIN mínimo 4 dígitos'); return; }
+  if (nuevo !== conf)   { showToast('⚠ Los PINs no coinciden'); return; }
+  // Guardar en Sheets
+  if (isOnline) {
+    try {
+      await fetch(SHEETS_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({action:'updatePin', dni: currentUser.dni, newPin: nuevo})});
+    } catch(e) { showToast('⚠ Sin conexión'); return; }
+  } else { showToast('⚠ Sin conexión — no se puede cambiar PIN'); return; }
+  // Actualizar caché local y sesión
+  const sups = getSupervisores().map(s => s.dni===currentUser.dni ? {...s, pin:nuevo} : s);
+  localStorage.setItem(DB_SUPERVISORES, JSON.stringify(sups));
+  currentUser.pin = nuevo;
+  sessionStorage.setItem('dmz_session', JSON.stringify({...currentUser, pin: nuevo}));
   document.getElementById('pinSuccess').classList.add('show');
   setTimeout(volverDePin, 1800);
 }
@@ -1172,13 +1256,23 @@ async function syncFromSheets() {
   if (!isOnline) return;
   try {
     updateSyncUI('syncing');
-    const res = await fetch(`${SHEETS_URL}?action=getData`,{redirect:'follow'});
+    const res  = await fetch(`${SHEETS_URL}?action=getData`, {redirect:'follow'});
     const data = await res.json();
-    if (data.personal?.length)    savePersonal(data.personal);
+    // Siempre actualizar personal desde Sheets
+    if (data.personal?.length) {
+      localStorage.setItem(DB_PERSONAL, JSON.stringify(
+        data.personal.map(p => ({...p, dni:String(p.dni||'').trim()}))
+      ));
+    }
+    // Siempre actualizar supervisores desde Sheets (Sheets es la fuente de verdad)
     if (data.supervisores?.length) {
-      // Solo actualizar si no usan formato viejo
-      const norm = data.supervisores.map(s=>({...s, dni:s.dni||s.email||''}));
-      if (norm.every(s=>s.dni)) saveSupervisores(norm);
+      const norm = data.supervisores.map(s => ({
+        ...s,
+        dni: String(s.dni||'').trim(),
+        pin: String(s.pin||'').trim(),
+        activo: s.activo !== false
+      }));
+      localStorage.setItem(DB_SUPERVISORES, JSON.stringify(norm));
     }
     updateSyncUI('online');
     return true;
