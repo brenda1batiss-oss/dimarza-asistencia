@@ -12,7 +12,7 @@
 html,body{height:100%;background:radial-gradient(ellipse at 30% 20%,#2a0808 0%,var(--coal) 65%);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;color:var(--ice);overflow:hidden}
 body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);pointer-events:none}
 .wrap{width:100%;max-width:360px;padding:24px;display:flex;flex-direction:column;align-items:center}
-.logo-wrap{text-align:center;margin-bottom:24px;user-select:none}
+.logo-wrap{text-align:center;margin-bottom:24px;user-select:none;cursor:pointer}
 .logo-img{width:96px;height:96px;object-fit:contain;filter:drop-shadow(0 0 20px rgba(204,16,16,0.5))}
 .subtitle{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--fog);text-transform:uppercase;margin-top:6px}
 .mine{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--ore);margin-top:3px}
@@ -49,107 +49,46 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <label class="lbl">PIN de Acceso</label>
       <input class="inp" id="fPin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
     </div>
-    <button class="btn" id="btnOk" onclick="login()">INGRESAR</button>
+    <button class="btn" id="btnOk" onclick="doLogin()">INGRESAR</button>
     <div class="status" id="status"></div>
   </div>
 </div>
 <script>
-const SHEETS = 'https://script.google.com/macros/s/AKfycbw_EYKvhwneblE737ABSb7O4FlWQzba85y0YHbdZC0JBZLV_5_0c5jf8QpKYcc3ihb-/exec';
-const DB_SUP  = 'dmz_supervisores';
+const SB_SUP  = 'https://api.sheetbest.com/sheets/0aede14a-e775-4bb8-abf9-ae1549aaa448/tabs/Supervisores';
 const SESSION = 'dmz_session';
+const CACHE   = 'dmz_supervisores';
 
-// Seed de emergencia — solo se usa si Sheets no responde
-const SEED = [
-  {dni:'00000001', nombre:'Administrador Dimarza', pin:'1234', rol:'Administrador', activo:true}
-];
+// Seed de emergencia por si no hay conexión
+const SEED = [{dni:'00000001',nombre:'Administrador Dimarza',pin:'1234',rol:'Administrador',Activo:'TRUE'}];
 
-// ── Cargar supervisores via JSONP (evita CORS completamente) ──────────────
-function cargarSupervisoresJSONP() {
-  return new Promise((resolve) => {
-    const cbName = 'cb_' + Date.now();
-    const timeout = setTimeout(() => {
-      delete window[cbName];
-      const cached = leerCache();
-      resolve(cached);
-    }, 6000);
-
-    window[cbName] = function(data) {
-      clearTimeout(timeout);
-      delete window[cbName];
-      const tag = document.getElementById('jsonp-tag');
-      if (tag) tag.remove();
-      if (data && data.supervisores && data.supervisores.length) {
-        const norm = data.supervisores.map(s => ({
-          ...s,
-          dni: String(s.dni||'').trim(),
-          pin: String(s.pin||'').trim(),
-          activo: s.activo !== false
-        }));
-        localStorage.setItem(DB_SUP, JSON.stringify(norm));
-        resolve(norm);
-      } else {
-        resolve(leerCache());
-      }
-    };
-
-    const script = document.createElement('script');
-    script.id = 'jsonp-tag';
-    script.onerror = () => {
-      clearTimeout(timeout);
-      delete window[cbName];
-      resolve(leerCache());
-    };
-    script.src = SHEETS + '?action=getSupervisores&callback=' + cbName;
-    document.head.appendChild(script);
-  });
-}
-
-// ── Cargar via fetch normal como segundo intento ──────────────────────────
-async function cargarSupervisoresFetch() {
+async function cargarSupervisores() {
   try {
-    const res  = await fetch(SHEETS + '?action=getSupervisores', {redirect:'follow'});
+    setStatus('Verificando...');
+    const res = await fetch(SB_SUP, {cache:'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    if (data.success && data.supervisores?.length) {
-      const norm = data.supervisores.map(s => ({
-        ...s,
-        dni: String(s.dni||'').trim(),
-        pin: String(s.pin||'').trim(),
-        activo: s.activo !== false
-      }));
-      localStorage.setItem(DB_SUP, JSON.stringify(norm));
-      return norm;
+    const sups = Array.isArray(data) ? data : [];
+    if (sups.length) {
+      localStorage.setItem(CACHE, JSON.stringify(sups));
+      setStatus('');
+      return sups;
     }
-  } catch(e) {}
-  return null;
-}
-
-function leerCache() {
+  } catch(e) {
+    console.warn('SheetBest error:', e);
+  }
+  // Usar caché local si falla
+  setStatus('Sin conexión — usando caché');
   try {
-    const c = JSON.parse(localStorage.getItem(DB_SUP) || '[]');
+    const c = JSON.parse(localStorage.getItem(CACHE) || '[]');
     if (c.length) return c;
   } catch(e) {}
   return SEED;
 }
 
-async function cargarSupervisores() {
-  setStatus('Conectando...');
-  // Intentar fetch primero (más rápido)
-  const r1 = await Promise.race([
-    cargarSupervisoresFetch(),
-    new Promise(res => setTimeout(() => res(null), 4000))
-  ]);
-  if (r1) { setStatus(''); return r1; }
-  // Si falla, intentar JSONP
-  setStatus('Reintentando...');
-  const r2 = await cargarSupervisoresJSONP();
-  setStatus('');
-  return r2;
-}
-
-async function login() {
+async function doLogin() {
   hideMsg();
-  const dni = String(document.getElementById('fDni').value||'').trim().replace(/\D/g,'');
-  const pin = String(document.getElementById('fPin').value||'').trim();
+  const dni = (document.getElementById('fDni').value || '').trim().replace(/\D/g,'');
+  const pin = (document.getElementById('fPin').value || '').trim();
 
   if (!dni || dni.length < 7) { showErr('Ingrese un DNI válido (7-8 dígitos).'); return; }
   if (!pin || pin.length < 4) { showErr('Ingrese su PIN (mínimo 4 dígitos).'); return; }
@@ -157,27 +96,33 @@ async function login() {
   document.getElementById('btnOk').disabled = true;
   const sups = await cargarSupervisores();
 
-  const user = sups.find(s =>
-    String(s.dni||'').trim() === dni &&
-    String(s.pin||'').trim() === pin &&
-    s.activo !== false
-  );
+  // Normalizar y buscar
+  const user = sups.find(s => {
+    const sDni = String(s.DNI || s.dni || '').trim();
+    const sPin = String(s.PIN || s.pin || '').trim();
+    const sActivo = String(s.Activo || s.activo || 'TRUE').trim().toUpperCase();
+    return sDni === dni && sPin === pin && sActivo !== 'FALSE';
+  });
+
+  document.getElementById('btnOk').disabled = false;
 
   if (!user) {
-    document.getElementById('btnOk').disabled = false;
-    // Mostrar qué DNIs existen (para debug temporal)
-    const dnis = sups.map(s=>s.dni).join(', ');
-    showErr('DNI o PIN incorrecto.\nDNIs registrados: ' + dnis);
+    showErr('DNI o PIN incorrecto.');
     document.getElementById('fPin').value = '';
     document.getElementById('fPin').focus();
     return;
   }
 
-  sessionStorage.setItem(SESSION, JSON.stringify({
-    dni: user.dni, pin: user.pin, rol: user.rol, nombre: user.nombre
-  }));
+  const session = {
+    dni:    String(user.DNI    || user.dni    || '').trim(),
+    pin:    String(user.PIN    || user.pin    || '').trim(),
+    rol:    String(user.Rol    || user.rol    || 'Supervisor').trim(),
+    nombre: String(user.Nombre || user.nombre || '').trim()
+  };
+  sessionStorage.setItem(SESSION, JSON.stringify(session));
   document.getElementById('msgOk').classList.add('show');
-  setTimeout(() => window.location.href = 'app.html', 600);
+  setStatus('');
+  setTimeout(() => window.location.href = 'app.html', 500);
 }
 
 function showErr(msg) {
@@ -190,34 +135,30 @@ function hideMsg() {
 }
 function setStatus(msg) { document.getElementById('status').textContent = msg; }
 
-document.getElementById('fPin').addEventListener('keydown', e => { if(e.key==='Enter') login(); });
+// Enter key
+document.getElementById('fPin').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 document.getElementById('fDni').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('fPin').focus(); });
 
-// 7 taps en logo → limpiar caché
-let taps=0,tapT;
-document.getElementById('logoTap').addEventListener('click', ()=>{
+// 7 taps en logo = limpiar caché
+let taps=0, tapT;
+document.getElementById('logoTap').addEventListener('click', () => {
   taps++; clearTimeout(tapT);
-  tapT=setTimeout(()=>taps=0,2000);
-  if(taps>=7){
-    taps=0;
-    localStorage.removeItem(DB_SUP);
+  tapT = setTimeout(() => taps=0, 2000);
+  if (taps >= 7) {
+    taps = 0;
+    localStorage.removeItem(CACHE);
     sessionStorage.removeItem(SESSION);
-    setStatus('Cache limpiada. Recargando...');
-    setTimeout(()=>window.location.reload(),1000);
+    setStatus('Cache limpiada.');
+    setTimeout(() => window.location.reload(), 800);
   }
 });
 
 // Verificar sesión existente
-(function(){
-  try{
-    const s=JSON.parse(sessionStorage.getItem(SESSION)||'null');
-    if(s?.dni&&s?.pin){
-      const c=leerCache();
-      if(c.find(u=>u.dni===s.dni&&u.pin===s.pin)){
-        window.location.href='app.html'; return;
-      }
-    }
-  }catch(e){}
+(function() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(SESSION) || 'null');
+    if (s?.dni && s?.pin) window.location.href = 'app.html';
+  } catch(e) {}
 })();
 </script>
 </body>
