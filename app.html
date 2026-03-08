@@ -1184,9 +1184,11 @@ function applyDashFilters() {
   filtered.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
   const maxC = Math.max(1,...Object.values(cargos));
   const cargoEntries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  // Store cargo list for click filtering
+  window._cargoEntries = cargoEntries;
   document.getElementById('cargoList').innerHTML = cargoEntries.length
-    ? cargoEntries.map(([c,n])=>`
-      <div class="cargo-row" style="cursor:pointer" onclick="filterByCargo('${c.replace(/'/g,'\\'')}')">
+    ? cargoEntries.map(([c,n],i)=>`
+      <div class="cargo-row" style="cursor:pointer" onclick="filterByCargo(window._cargoEntries[${i}][0])">
         <div class="cargo-name" title="${c}">${c}</div>
         <div class="cargo-bar-wrap"><div class="cargo-bar" style="width:${(n/maxC)*100}%"></div></div>
         <div class="cargo-count">${n}</div>
@@ -1194,16 +1196,14 @@ function applyDashFilters() {
     : '<div style="color:var(--text3);font-size:12px;padding:8px 0">Sin datos</div>';
   document.getElementById('cargoSubtitle').textContent = cargoEntries.length ? cargoEntries.length+' puestos' : '';
 
-  // Por supervisor
-  const bySuper = {};
-  filtered.forEach(r=>{ bySuper[r.dniSupervisor]=(bySuper[r.dniSupervisor]||0)+1; });
-  document.getElementById('supStatList').innerHTML = sups
-    .filter(s=>bySuper[s.dni])
-    .sort((a,b)=>(bySuper[b.dni]||0)-(bySuper[a.dni]||0))
-    .map(s=>{
+  // Store sups list for click filtering
+  const supsFilt = sups.filter(s=>bySuper[s.dni]).sort((a,b)=>(bySuper[b.dni]||0)-(bySuper[a.dni]||0));
+  window._supsFilt = supsFilt;
+  document.getElementById('supStatList').innerHTML = supsFilt
+    .map((s,i)=>{
       const ini = s.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
       const av  = renderAvatarEl(s.dni, ini, 40, 'var(--blue)');
-      return `<div class="sup-row" style="cursor:pointer" onclick="filterBySup('${s.dni}','${s.nombre.replace(/'/g,"\\'")}')">
+      return `<div class="sup-row" style="cursor:pointer" onclick="filterBySupIdx(${i})">
         <div class="sup-av">${av}</div>
         <div class="sup-info">
           <div class="sup-name">${s.nombre}</div>
@@ -1242,6 +1242,10 @@ function filterByCargo(cargo) {
   showToast('Filtrado: '+cargo);
 }
 
+function filterBySupIdx(i) {
+  const s = window._supsFilt && window._supsFilt[i];
+  if (s) filterBySup(s.dni, s.nombre);
+}
 function filterBySup(dni, nombre) {
   const areaMap = {};
   getSupervisores().forEach(s=>{ areaMap[s.dni]=s.area||''; });
