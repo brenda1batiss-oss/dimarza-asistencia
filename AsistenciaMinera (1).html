@@ -674,6 +674,7 @@ body::before {
       <input class="field-input" id="loginPin" type="password" placeholder="••••••" maxlength="6" inputmode="numeric">
     </div>
     <button class="btn-login" onclick="doLogin()">INGRESAR</button>
+    <button onclick="resetDB()" style="margin-top:12px;background:none;border:none;color:var(--fog);font-size:11px;font-family:var(--font-mono);cursor:pointer;text-decoration:underline">Restablecer datos de prueba</button>
   </div>
 </div>
 
@@ -1027,7 +1028,9 @@ const SEED_PERSONAL = [
 ];
 
 function initDB() {
-  if (!localStorage.getItem(DB_SUPERVISORES)) {
+  // Si los supervisores guardados usan el formato viejo (email), limpiar y recargar
+  const supGuardados = JSON.parse(localStorage.getItem(DB_SUPERVISORES) || '[]');
+  if (supGuardados.length === 0 || supGuardados[0].email !== undefined) {
     localStorage.setItem(DB_SUPERVISORES, JSON.stringify(SEED_SUPERVISORES));
   }
   if (!localStorage.getItem(DB_UNIDADES)) {
@@ -1039,6 +1042,14 @@ function initDB() {
   if (!localStorage.getItem(DB_REGISTROS)) {
     localStorage.setItem(DB_REGISTROS, JSON.stringify([]));
   }
+}
+
+function resetDB() {
+  localStorage.setItem(DB_SUPERVISORES, JSON.stringify(SEED_SUPERVISORES));
+  localStorage.setItem(DB_UNIDADES,     JSON.stringify(SEED_UNIDADES));
+  localStorage.setItem(DB_PERSONAL,     JSON.stringify(SEED_PERSONAL));
+  localStorage.setItem(DB_REGISTROS,    JSON.stringify([]));
+  showToast('✓ Datos restablecidos — usa DNI 00000001 / PIN 1234');
 }
 
 function getPersonal() { return JSON.parse(localStorage.getItem(DB_PERSONAL) || '[]'); }
