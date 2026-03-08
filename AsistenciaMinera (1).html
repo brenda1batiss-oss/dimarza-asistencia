@@ -9,7 +9,7 @@
 <title>Dimarza — Control de Asistencia</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>/* Sin librerías externas — usamos BarcodeDetector nativo de Chrome Android */</script>
 <style>
 /* ═══ RESET & BASE ═══════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -664,10 +664,10 @@ body::before {
       <div class="login-subtitle">Control de Asistencia de Personal</div>
     </div>
   <div class="login-card">
-    <div class="login-error" id="loginError">Usuario o PIN incorrecto. Intente nuevamente.</div>
+    <div class="login-error" id="loginError">DNI o PIN incorrecto. Intente nuevamente.</div>
     <div class="field-group">
-      <label class="field-label">Correo o Usuario</label>
-      <input class="field-input" id="loginEmail" type="email" placeholder="supervisor@minera.com" autocomplete="off">
+      <label class="field-label">DNI del Supervisor</label>
+      <input class="field-input" id="loginEmail" type="text" placeholder="12345678" inputmode="numeric" maxlength="8" autocomplete="off">
     </div>
     <div class="field-group">
       <label class="field-label">PIN de Acceso</label>
@@ -742,10 +742,12 @@ body::before {
       <div class="nav-icon">⎋</div>
       <div class="nav-label">Salir</div>
     </button>
+    <button class="nav-item" onclick="showPinScreen()">
+      <div class="nav-icon">🔑</div>
+      <div class="nav-label">Mi PIN</div>
+    </button>
   </div>
-</div>
-
-<!-- ═══ SCANNER SCREEN ═══════════════════════════════════════════════════════ -->
+</div> ═══════════════════════════════════════════════════════ -->
 <div id="scanScreen" class="screen">
   <div class="topbar">
     <button class="topbar-back" onclick="cancelScan()">← Atrás</button>
@@ -756,11 +758,18 @@ body::before {
 
     <!-- Camera scanner frame -->
     <div class="scanner-frame scanner-corners scanner-corners-bottom">
-      <div id="html5qr-scanner" style="width:100%;height:240px;background:#000;position:relative;overflow:hidden;">
+      <div id="scannerBox" style="width:100%;height:260px;background:#000;position:relative;overflow:hidden;">
+        <video id="scanVideo" autoplay muted playsinline
+          style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+        <canvas id="scanCanvas" style="display:none;"></canvas>
         <div class="scan-line"></div>
+        <!-- Guía visual del área de escaneo -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+          width:85%;height:60px;border:2px dashed rgba(204,16,16,0.7);border-radius:4px;
+          pointer-events:none;"></div>
       </div>
     </div>
-    <div class="scan-hint" id="scanHint">Apunte al código de barras — Code 128 o PDF417</div>
+    <div class="scan-hint" id="scanHint">Centrando cámara...</div>
 
     <div class="divider-or"><span>O INGRESE MANUALMENTE</span></div>
 
@@ -876,6 +885,14 @@ body::before {
       <div class="nav-icon">📊</div>
       <div class="nav-label">Dashboard</div>
     </button>
+    <button class="nav-item" onclick="showAdminScreen()">
+      <div class="nav-icon">👥</div>
+      <div class="nav-label">Supervisores</div>
+    </button>
+    <button class="nav-item" onclick="showPinScreen()">
+      <div class="nav-icon">🔑</div>
+      <div class="nav-label">Mi PIN</div>
+    </button>
     <button class="nav-item" onclick="doLogout()">
       <div class="nav-icon">⎋</div>
       <div class="nav-label">Salir</div>
@@ -883,7 +900,80 @@ body::before {
   </div>
 </div>
 
-<!-- ═══ SUCCESS OVERLAY ══════════════════════════════════════════════════════ -->
+<!-- ═══ ADMIN: GESTIÓN DE SUPERVISORES ══════════════════════════════════════ -->
+<div id="adminScreen" class="screen">
+  <div class="topbar">
+    <button class="topbar-back" onclick="showDash()">← Atrás</button>
+    <div class="topbar-brand" style="font-size:14px">Gestión de Supervisores</div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="scan-area" style="padding-bottom:24px">
+
+    <!-- Agregar supervisor -->
+    <div style="background:var(--plate);border:1px solid var(--steel);border-radius:var(--r-lg);padding:16px;margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--ore);margin-bottom:12px;letter-spacing:1px">➕ NUEVO SUPERVISOR</div>
+      <div class="field-group">
+        <label class="field-label">DNI</label>
+        <input class="field-input" id="newSupDni" type="text" placeholder="12345678" inputmode="numeric" maxlength="8">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Nombre completo</label>
+        <input class="field-input" id="newSupNombre" type="text" placeholder="Juan Flores T.">
+      </div>
+      <div class="field-group">
+        <label class="field-label">PIN (4-6 dígitos)</label>
+        <input class="field-input" id="newSupPin" type="password" placeholder="••••" inputmode="numeric" maxlength="6">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Unidad Minera</label>
+        <select class="field-input" id="newSupUnidad" style="background:var(--steel);color:var(--ice)">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Rol</label>
+        <select class="field-input" id="newSupRol" style="background:var(--steel);color:var(--ice)">
+          <option value="Supervisor">Supervisor</option>
+          <option value="Administrador">Administrador</option>
+        </select>
+      </div>
+      <button class="btn-login" style="margin-top:8px" onclick="agregarSupervisor()">GUARDAR SUPERVISOR</button>
+    </div>
+
+    <!-- Lista de supervisores -->
+    <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--fog);letter-spacing:1px;margin-bottom:8px">SUPERVISORES REGISTRADOS</div>
+    <div id="supList"></div>
+  </div>
+</div>
+
+<!-- ═══ CAMBIAR PIN ════════════════════════════════════════════════════════════ -->
+<div id="pinScreen" class="screen">
+  <div class="topbar">
+    <button class="topbar-back" onclick="volverDePin()">← Atrás</button>
+    <div class="topbar-brand" style="font-size:14px">Cambiar PIN</div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="login-card" style="margin-top:40px">
+    <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--ice);margin-bottom:20px;text-align:center" id="pinScreenTitle">Cambiar mi PIN</div>
+    <div class="login-error" id="pinError" style="display:none">PIN actual incorrecto</div>
+    <div class="login-error" id="pinSuccess" style="display:none;background:rgba(0,201,122,0.1);border-color:var(--signal);color:var(--signal)">✓ PIN actualizado correctamente</div>
+    <div class="field-group">
+      <label class="field-label">PIN actual</label>
+      <input class="field-input" id="pinActual" type="password" placeholder="••••" inputmode="numeric" maxlength="6">
+    </div>
+    <div class="field-group">
+      <label class="field-label">PIN nuevo</label>
+      <input class="field-input" id="pinNuevo" type="password" placeholder="••••" inputmode="numeric" maxlength="6">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Confirmar PIN nuevo</label>
+      <input class="field-input" id="pinConfirm" type="password" placeholder="••••" inputmode="numeric" maxlength="6">
+    </div>
+    <button class="btn-login" onclick="cambiarPin()">ACTUALIZAR PIN</button>
+  </div>
+</div>
+
+
 <div class="success-overlay" id="successOverlay">
   <div class="success-icon-big">✓</div>
   <div class="success-text">ASISTENCIA REGISTRADA</div>
@@ -903,12 +993,12 @@ const DB_SUPERVISORES = 'db_supervisores';
 const DB_REGISTROS = 'db_registros';
 const DB_UNIDADES = 'db_unidades';
 
-// Seed data
+// Seed data — supervisores usan DNI como login
 const SEED_SUPERVISORES = [
-  { email: 'admin@minera.com', nombre: 'Carlos Mendoza R.', pin: '1234', unidad: 'UM-001', rol: 'Administrador', activo: true },
-  { email: 'sup1@minera.com', nombre: 'Rosa Quispe L.', pin: '2222', unidad: 'UM-001', rol: 'Supervisor', activo: true },
-  { email: 'sup2@minera.com', nombre: 'Juan Flores T.', pin: '3333', unidad: 'UM-002', rol: 'Supervisor', activo: true },
-  { email: 'sup3@minera.com', nombre: 'María Castro B.', pin: '4444', unidad: 'UM-003', rol: 'Supervisor', activo: true },
+  { dni: '00000001', nombre: 'Carlos Mendoza R.', pin: '1234', unidad: 'UM-001', rol: 'Administrador', activo: true },
+  { dni: '00000002', nombre: 'Rosa Quispe L.',    pin: '2222', unidad: 'UM-001', rol: 'Supervisor',    activo: true },
+  { dni: '00000003', nombre: 'Juan Flores T.',    pin: '3333', unidad: 'UM-002', rol: 'Supervisor',    activo: true },
+  { dni: '00000004', nombre: 'María Castro B.',   pin: '4444', unidad: 'UM-003', rol: 'Supervisor',    activo: true },
 ];
 
 const SEED_UNIDADES = [
@@ -975,13 +1065,13 @@ function showScreen(id) {
 }
 
 function showHome() {
-  stopQuagga();
+  stopScanner();
   showScreen('homeScreen');
   renderHome();
 }
 
 function showDash() {
-  stopQuagga();
+  stopScanner();
   showScreen('dashScreen');
   renderDash();
 }
@@ -997,7 +1087,7 @@ function goToScan() {
 }
 
 function cancelScan() {
-  stopQuagga();
+  stopScanner();
   if (currentUser?.rol === 'Administrador') showDash();
   else showHome();
 }
@@ -1005,22 +1095,20 @@ function cancelScan() {
 // ═══════════════════════════════════════════════════════════════════════════
 // LOGIN / LOGOUT
 // ═══════════════════════════════════════════════════════════════════════════
+function saveSupervisores(s) { localStorage.setItem(DB_SUPERVISORES, JSON.stringify(s)); }
+
 function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const dniInput = document.getElementById('loginEmail').value.trim().replace(/\D/g,'');
   const pin = document.getElementById('loginPin').value.trim();
   const err = document.getElementById('loginError');
   err.classList.remove('show');
 
   const supervisores = getSupervisores();
-  const found = supervisores.find(s =>
-    (s.email.toLowerCase() === email || s.nombre.toLowerCase().includes(email)) &&
-    s.pin === pin && s.activo
-  );
+  const found = supervisores.find(s => s.dni === dniInput && s.pin === pin && s.activo);
 
   if (!found) { err.classList.add('show'); return; }
   currentUser = found;
 
-  // Update UI
   const initials = found.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('userAvatar').textContent = initials;
   const unidades = getUnidades();
@@ -1039,7 +1127,7 @@ function doLogin() {
 
 function doLogout() {
   currentUser = null;
-  stopQuagga();
+  stopScanner();
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPin').value = '';
   showScreen('loginScreen');
@@ -1277,7 +1365,7 @@ function confirmRegister() {
     cargo: currentWorker.cargo,
     empresa: currentWorker.empresa,
     unidad: currentUser.unidad,
-    emailSupervisor: currentUser.email,
+    dniSupervisor: currentUser.dni,
     nombreSupervisor: currentUser.nombre,
     fecha: now.toISOString().slice(0, 10),
     hora: now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
@@ -1288,39 +1376,67 @@ function confirmRegister() {
   };
 
   const registros = getRegistros();
-  // Prevenir duplicado en el mismo día
   const duplicado = registros.find(r => r.dni === registro.dni && r.fecha === registro.fecha);
   if (duplicado) {
-    showToast('⚠ Ya registrado hoy a las ' + duplicado.hora);
-    setTimeout(() => { if (currentUser?.rol === 'Administrador') showDash(); else showHome(); }, 1800);
+    // Mostrar alerta de duplicado y quedarse en el scanner
+    showDuplicateAlert(currentWorker, duplicado.hora);
+    resetScannerForNext();
     return;
   }
 
-  // Guardar localmente PRIMERO (offline-first)
   registros.push(registro);
   saveRegistros(registros);
 
-  // Mostrar éxito inmediatamente
+  // Flash de éxito breve (1.5s) sin salir de la pantalla
   document.getElementById('successSub').textContent = `${currentWorker.nombres} ${currentWorker.apellidos} · ${registro.hora}`;
   const overlay = document.getElementById('successOverlay');
   overlay.classList.add('show');
   if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
-  // Intentar push a Sheets en segundo plano
   if (isOnline) {
     pushRegistroToSheets(registro).then(ok => {
-      if (ok) {
-        registro.sincronizado = true;
-        saveRegistros(registros);
-      }
+      if (ok) { registro.sincronizado = true; saveRegistros(registros); }
     });
   }
 
+  // Después de 1.5s volver al scanner listo para el siguiente
   setTimeout(() => {
     overlay.classList.remove('show');
-    currentWorker = null;
-    if (currentUser?.rol === 'Administrador') showDash();
-    else { showHome(); renderHome(); }
+    resetScannerForNext();
+  }, 1500);
+}
+
+// Resetea la pantalla de scan para el siguiente trabajador sin salir
+function resetScannerForNext() {
+  currentWorker = null;
+  document.getElementById('workerCard').classList.remove('show');
+  document.getElementById('workerNotFound').classList.remove('show');
+  document.getElementById('dniInput').value = '';
+  document.getElementById('scanHint').textContent = 'Listo — escanee el siguiente DNI';
+  resetConfirmBtn();
+  // Reiniciar el scanner
+  setTimeout(startScanner, 300);
+}
+
+// Muestra alerta visual de duplicado sin salir del scanner
+function showDuplicateAlert(worker, hora) {
+  const overlay = document.getElementById('successOverlay');
+  const icon = overlay.querySelector('.success-icon-big');
+  const text = overlay.querySelector('.success-text');
+  const sub  = overlay.querySelector('.success-sub');
+  icon.textContent = '⚠';
+  icon.style.color = 'var(--caution)';
+  text.textContent = 'YA REGISTRADO HOY';
+  text.style.color = 'var(--caution)';
+  sub.textContent = `${worker.nombres} ${worker.apellidos} · registrado a las ${hora}`;
+  overlay.classList.add('show');
+  if (navigator.vibrate) navigator.vibrate([300]);
+  setTimeout(() => {
+    overlay.classList.remove('show');
+    icon.textContent = '✓';
+    icon.style.color = '';
+    text.textContent = 'ASISTENCIA REGISTRADA';
+    text.style.color = '';
   }, 2000);
 }
 
@@ -1437,8 +1553,118 @@ async function stopScanner() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GOOGLE SHEETS API — Conexión real
+// ADMIN — Gestión de Supervisores
 // ═══════════════════════════════════════════════════════════════════════════
+function showAdminScreen() {
+  stopScanner();
+  showScreen('adminScreen');
+  // Poblar select de unidades
+  const sel = document.getElementById('newSupUnidad');
+  sel.innerHTML = '<option value="">— Seleccionar —</option>';
+  getUnidades().forEach(u => {
+    sel.innerHTML += `<option value="${u.id}">${u.nombre}</option>`;
+  });
+  renderSupList();
+}
+
+function renderSupList() {
+  const list = document.getElementById('supList');
+  const sups = getSupervisores();
+  if (!sups.length) { list.innerHTML = '<div style="color:var(--fog);font-size:13px;padding:12px 0">Sin supervisores registrados</div>'; return; }
+  list.innerHTML = sups.map((s, i) => `
+    <div style="background:var(--plate);border:1px solid var(--steel);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:50%;background:${s.rol==='Administrador'?'var(--ore)':'var(--steel)'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">
+        ${s.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.nombre}</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--fog)">DNI: ${s.dni} · ${s.unidad} · ${s.rol}</div>
+      </div>
+      <button onclick="eliminarSupervisor(${i})" style="background:none;border:1px solid rgba(204,16,16,0.4);border-radius:var(--r);color:var(--ore);font-size:11px;padding:4px 8px;cursor:pointer">✕</button>
+    </div>
+  `).join('');
+}
+
+function agregarSupervisor() {
+  const dni    = document.getElementById('newSupDni').value.trim().replace(/\D/g,'');
+  const nombre = document.getElementById('newSupNombre').value.trim();
+  const pin    = document.getElementById('newSupPin').value.trim();
+  const unidad = document.getElementById('newSupUnidad').value;
+  const rol    = document.getElementById('newSupRol').value;
+
+  if (dni.length < 7)   { showToast('⚠ DNI debe tener 7-8 dígitos'); return; }
+  if (!nombre)          { showToast('⚠ Ingrese el nombre'); return; }
+  if (pin.length < 4)   { showToast('⚠ PIN mínimo 4 dígitos'); return; }
+  if (!unidad)          { showToast('⚠ Seleccione una unidad'); return; }
+
+  const sups = getSupervisores();
+  if (sups.find(s => s.dni === dni)) { showToast('⚠ Ese DNI ya existe'); return; }
+
+  sups.push({ dni, nombre, pin, unidad, rol, activo: true });
+  saveSupervisores(sups);
+
+  // Limpiar campos
+  ['newSupDni','newSupNombre','newSupPin'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('newSupUnidad').value = '';
+  showToast('✓ Supervisor agregado');
+  renderSupList();
+}
+
+function eliminarSupervisor(idx) {
+  const sups = getSupervisores();
+  if (sups[idx].rol === 'Administrador' && sups.filter(s=>s.rol==='Administrador').length <= 1) {
+    showToast('⚠ Debe haber al menos 1 administrador'); return;
+  }
+  sups.splice(idx, 1);
+  saveSupervisores(sups);
+  renderSupList();
+  showToast('Supervisor eliminado');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CAMBIAR PIN
+// ═══════════════════════════════════════════════════════════════════════════
+function showPinScreen() {
+  stopScanner();
+  document.getElementById('pinActual').value = '';
+  document.getElementById('pinNuevo').value = '';
+  document.getElementById('pinConfirm').value = '';
+  document.getElementById('pinError').style.display = 'none';
+  document.getElementById('pinSuccess').style.display = 'none';
+  document.getElementById('pinScreenTitle').textContent = `Cambiar PIN — ${currentUser?.nombre || ''}`;
+  showScreen('pinScreen');
+}
+
+function volverDePin() {
+  if (currentUser?.rol === 'Administrador') showDash();
+  else showHome();
+}
+
+function cambiarPin() {
+  const actual  = document.getElementById('pinActual').value.trim();
+  const nuevo   = document.getElementById('pinNuevo').value.trim();
+  const confirm = document.getElementById('pinConfirm').value.trim();
+  const errEl   = document.getElementById('pinError');
+  const okEl    = document.getElementById('pinSuccess');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  if (actual !== currentUser.pin) { errEl.style.display='block'; return; }
+  if (nuevo.length < 4)  { showToast('⚠ PIN mínimo 4 dígitos'); return; }
+  if (nuevo !== confirm) { showToast('⚠ Los PINs no coinciden'); return; }
+
+  const sups = getSupervisores();
+  const idx  = sups.findIndex(s => s.dni === currentUser.dni);
+  if (idx < 0) { showToast('⚠ Error — supervisor no encontrado'); return; }
+
+  sups[idx].pin = nuevo;
+  currentUser.pin = nuevo;
+  saveSupervisores(sups);
+  okEl.style.display = 'block';
+  setTimeout(() => volverDePin(), 1800);
+}
+
+
 
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw_EYKvhwneblE737ABSb7O4FlWQzba85y0YHbdZC0JBZLV_5_0c5jf8QpKYcc3ihb-/exec';
 
