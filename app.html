@@ -9,8 +9,8 @@
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer onerror="console.warn('jsPDF no cargó')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer onerror="console.warn('autoTable no cargó')"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -898,7 +898,7 @@ async function cargarSesion() {
         if (Array.isArray(data) && data.length) {
           saveSupervisores(data.map(normSup));
         }
-      } catch(e) {}
+      } catch(e) { console.warn('SB_SUP fetch failed, using cache'); }
     }
     const sups = getSupervisores();
     const user = sups.find(u => u.dni===s.dni && u.pin===s.pin && u.activo!==false);
@@ -908,7 +908,6 @@ async function cargarSesion() {
     if (user.rol==='Administrador') {
       showDash();
     } else {
-      // Check if needs area/turno
       if (!user.area) {
         showSelector('area');
       } else if (!user.turno) {
@@ -918,7 +917,16 @@ async function cargarSesion() {
       }
     }
     if (isOnline) { syncFromSheets(); setInterval(()=>{if(isOnline)syncFromSheets();},300000); }
-  } catch(e) { window.location.href='login.html'; }
+  } catch(e) {
+    console.error('cargarSesion error:', e);
+    // Show visible error instead of blank page
+    document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;padding:24px;background:#F5F7FA;font-family:sans-serif">
+      <div style="font-size:48px">⚠️</div>
+      <div style="font-size:18px;font-weight:700;color:#1A202C">Error al cargar la sesión</div>
+      <div style="font-size:13px;color:#718096;text-align:center">${e.message || 'Error desconocido'}</div>
+      <button onclick="sessionStorage.clear();localStorage.clear();window.location.href='login.html'" style="background:#CC1010;color:white;border:none;border-radius:8px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:1px">VOLVER AL LOGIN</button>
+    </div>`;
+  }
 }
 
 // ══════════════════════════════════════════════════════
