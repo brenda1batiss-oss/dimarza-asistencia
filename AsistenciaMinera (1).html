@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 /* ═══ RESET & BASE ═══════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -984,8 +985,9 @@ function goToScan() {
   document.getElementById('workerCard').classList.remove('show');
   document.getElementById('workerNotFound').classList.remove('show');
   document.getElementById('dniInput').value = '';
+  resetConfirmBtn();
   showScreen('scanScreen');
-  setTimeout(startQuagga, 400);
+  setTimeout(startScanner, 400);
 }
 
 function cancelScan() {
@@ -1204,9 +1206,9 @@ function searchDNI(rawDni, method) {
   document.getElementById('workerNotFound').classList.remove('show');
 
   if (found) {
+    // Trabajador encontrado en la BD
     currentWorker = found;
-    const initials = found.nombres.charAt(0) + found.apellidos.charAt(0);
-    document.getElementById('workerAvatar').textContent = initials;
+    document.getElementById('workerAvatar').textContent = found.nombres.charAt(0) + found.apellidos.charAt(0);
     document.getElementById('workerName').textContent = `${found.nombres} ${found.apellidos}`;
     document.getElementById('workerDNITag').textContent = `DNI: ${found.dni}`;
     document.getElementById('workerCargo').textContent = found.cargo;
@@ -1214,13 +1216,45 @@ function searchDNI(rawDni, method) {
     document.getElementById('workerEstado').textContent = found.estado;
     document.getElementById('workerTurno').textContent = getCurrentTurno();
     document.getElementById('workerCard').classList.add('show');
-    stopQuagga();
-    // Vibrate on found
     if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
   } else {
-    document.getElementById('workerNotFound').classList.add('show');
-    if (navigator.vibrate) navigator.vibrate([200]);
+    // ── DNI NO ESTÁ EN BD — igual permite registrar ──
+    currentWorker = {
+      dni: dni,
+      nombres: 'DNI',
+      apellidos: dni,
+      cargo: 'No registrado en sistema',
+      empresa: '— Pendiente RR.HH. —',
+      estado: 'Sin registro',
+    };
+    document.getElementById('workerAvatar').textContent = '?';
+    document.getElementById('workerName').textContent = `DNI: ${dni}`;
+    document.getElementById('workerDNITag').textContent = '⚠ No encontrado en la base de datos';
+    document.getElementById('workerCargo').textContent = 'Sin datos';
+    document.getElementById('workerEmpresa').textContent = 'Pendiente RR.HH.';
+    document.getElementById('workerEstado').textContent = '⚠ Sin registro';
+    document.getElementById('workerTurno').textContent = getCurrentTurno();
+    // Cambiar color del botón a amarillo advertencia
+    document.getElementById('workerCard').style.borderColor = 'var(--caution)';
+    document.querySelector('.btn-confirm').style.background = 'var(--caution)';
+    document.querySelector('.btn-confirm').style.color = '#000';
+    document.querySelector('.btn-confirm').textContent = '⚠ REGISTRAR DE TODAS FORMAS';
+    document.getElementById('workerCard').classList.add('show');
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    showToast('⚠ DNI no está en BD — igual puedes registrar');
   }
+}
+
+// Resetear estilo del botón confirmar al abrir scanner
+function resetConfirmBtn() {
+  const btn = document.querySelector('.btn-confirm');
+  if (btn) {
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.textContent = '✓ CONFIRMAR ASISTENCIA';
+  }
+  const card = document.getElementById('workerCard');
+  if (card) card.style.borderColor = '';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1285,52 +1319,95 @@ function confirmRegister() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// QUAGGA — Scanner de Código de Barras
+// ZXING SCANNER — Reemplaza Quagga, mejor detección en móvil
 // ═══════════════════════════════════════════════════════════════════════════
-function startQuagga() {
-  if (quaggaRunning || typeof Quagga === 'undefined') return;
+let zxingReader = null;
+let zxingRunning = false;
 
-  Quagga.init({
-    inputStream: {
-      name: 'Live',
-      type: 'LiveStream',
-      target: document.getElementById('quaggaTarget'),
-      constraints: {
-        facingMode: 'environment',
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
-    },
-    decoder: {
-      readers: ['pdf417_reader', 'code_39_reader', 'code_128_reader'],
-    },
-    locate: true,
-    frequency: 15,
-  }, function(err) {
-    if (err) {
-      console.log('Scanner no disponible:', err);
+function startQuagga() { startScanner(); } // alias para compatibilidad
+function stopQuagga() { stopScanner(); }   // alias para compatibilidad
+
+async function startScanner() {
+  if (zxingRunning) return;
+  resetConfirmBtn();
+
+  const videoEl = document.getElementById('scannerVideo');
+
+  // Mostrar elemento video en lugar del div quagga
+  const target = document.getElementById('quaggaTarget');
+  target.innerHTML = `
+    <video id="scannerVideo" autoplay muted playsinline
+      style="width:100%;height:240px;object-fit:cover;background:#000;display:block;"></video>
+    <div class="scan-line"></div>
+  `;
+
+  // Intentar ZXing primero
+  if (typeof ZXing !== 'undefined') {
+    try {
+      zxingReader = new ZXing.BrowserMultiFormatReader();
+      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+
+      // Preferir cámara trasera
+      let deviceId = undefined;
+      const back = devices.find(d =>
+        d.label.toLowerCase().includes('back') ||
+        d.label.toLowerCase().includes('rear') ||
+        d.label.toLowerCase().includes('environment') ||
+        d.label.toLowerCase().includes('trasera')
+      );
+      if (back) deviceId = back.deviceId;
+      else if (devices.length > 0) deviceId = devices[devices.length - 1].deviceId;
+
+      const videoTarget = document.getElementById('scannerVideo');
+      await zxingReader.decodeFromVideoDevice(deviceId, videoTarget, (result, err) => {
+        if (result) {
+          const raw = result.getText();
+          stopScanner();
+          scanMethod = 'Scanner';
+          const dni = extractDNI(raw);
+          document.getElementById('dniInput').value = dni;
+          searchDNI(raw, 'Scanner');
+          showToast('📷 DNI escaneado: ' + dni);
+          if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+        }
+      });
+      zxingRunning = true;
+      showToast('📷 Cámara lista — apunte al código');
       return;
+    } catch(e) {
+      console.warn('ZXing error:', e);
+      showToast('⚠ Usando entrada manual');
     }
-    Quagga.start();
-    quaggaRunning = true;
-  });
+  }
 
-  Quagga.onDetected(function(result) {
-    if (!result?.codeResult?.code) return;
-    const raw = result.codeResult.code;
-    stopQuagga();
-    scanMethod = 'Scanner';
-    const dni = extractDNI(raw);
-    document.getElementById('dniInput').value = dni;
-    searchDNI(raw, 'Scanner');
-    showToast('📷 Código escaneado');
-  });
+  // Fallback: pedir cámara directamente con getUserMedia
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const vid = document.getElementById('scannerVideo');
+    vid.srcObject = stream;
+    vid.play();
+    zxingRunning = true;
+    showToast('📷 Cámara activa — use ingreso manual');
+  } catch(e) {
+    showToast('⚠ Sin acceso a cámara — use ingreso manual');
+    console.warn('Camera error:', e);
+  }
 }
 
-function stopQuagga() {
-  if (!quaggaRunning || typeof Quagga === 'undefined') return;
-  try { Quagga.stop(); } catch(e) {}
-  quaggaRunning = false;
+function stopScanner() {
+  if (zxingReader) {
+    try { zxingReader.reset(); } catch(e) {}
+    zxingReader = null;
+  }
+  // Detener stream del video
+  const vid = document.getElementById('scannerVideo');
+  if (vid && vid.srcObject) {
+    vid.srcObject.getTracks().forEach(t => t.stop());
+    vid.srcObject = null;
+  }
+  zxingRunning = false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
