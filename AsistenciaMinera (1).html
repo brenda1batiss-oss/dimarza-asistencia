@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0D0D0D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Dimarza — Control de Asistencia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<style>
+/* ═══ RESET & BASE ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  /* ── Paleta Dimarza Corp. ── */
+  --coal: #0D0D0D;
+  --deep: #141414;
+  --plate: #1C1C1C;
+  --steel: #2A2A2A;
+  --ore: #CC1010;
+  --ore-dim: #991010;
+  --ore-glow: rgba(204,16,16,0.18);
+  --copper: #E8401A;
+  --signal: #00C97A;
+  --signal-dim: #009B5C;
+  --caution: #F5A623;
+  --danger: #FF2D2D;
+  --ice: #D8D8D8;
+  --fog: #888888;
+  --ghost: rgba(255,255,255,0.05);
+  --glass: rgba(255,255,255,0.03);
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-body: 'Barlow', sans-serif;
+  --r: 4px;
+  --r-lg: 8px;
+  --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+html, body {
+  height: 100%; overflow: hidden;
+  background: var(--coal);
+  font-family: var(--font-body);
+  color: var(--ice);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ SCANLINE TEXTURE ═══════════════════════════════════════════════════════ */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* ═══ SCREENS ════════════════════════════════════════════════════════════════ */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none;
+  transform: translateY(16px);
+  transition: opacity 300ms ease, transform 300ms ease;
+  overflow: hidden;
+}
+.screen.active {
+  opacity: 1; pointer-events: all;
+  transform: translateY(0);
+}
+
+/* ═══ LOGIN SCREEN ═══════════════════════════════════════════════════════════ */
+#loginScreen {
+  justify-content: center; align-items: center;
+  background: radial-gradient(ellipse at 30% 20%, #2a0808 0%, var(--coal) 65%);
+  padding: 24px;
+}
+.login-logo {
+  text-align: center; margin-bottom: 40px;
+}
+.login-logo .logo-mark {
+  display: inline-flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.logo-icon {
+  width: 48px; height: 48px;
+  background: var(--ore);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 28px rgba(204,16,16,0.4);
+}
+.logo-text {
+  font-family: var(--font-display);
+  font-size: 36px; font-weight: 800;
+  letter-spacing: 4px;
+  color: white;
+}
+.logo-text span { color: var(--ore); }
+.login-subtitle {
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--fog); font-family: var(--font-mono);
+}
+.login-card {
+  width: 100%; max-width: 380px;
+  background: var(--deep);
+  border: 1px solid rgba(168,196,224,0.1);
+  border-radius: var(--r-lg);
+  padding: 32px 28px;
+  position: relative; overflow: hidden;
+}
+.login-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--ore);
+}
+.field-group { margin-bottom: 20px; }
+.field-label {
+  display: block; font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--fog);
+  font-family: var(--font-mono); margin-bottom: 8px;
+}
+.field-input {
+  width: 100%; padding: 14px 16px;
+  background: var(--plate);
+  border: 1px solid rgba(168,196,224,0.12);
+  border-radius: var(--r);
+  color: var(--ice); font-size: 15px;
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.field-input:focus {
+  border-color: var(--ore);
+  box-shadow: 0 0 0 3px rgba(245,166,35,0.1);
+}
+.field-input::placeholder { color: var(--fog); }
+.btn-login {
+  width: 100%; padding: 16px;
+  background: var(--ore);
+  border: none; border-radius: var(--r);
+  color: white; font-size: 16px; font-weight: 700;
+  font-family: var(--font-display); letter-spacing: 3px; text-transform: uppercase;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+  margin-top: 8px;
+}
+.btn-login:active { transform: scale(0.98); background: var(--ore-dim); }
+.btn-login:hover { box-shadow: 0 4px 20px rgba(204,16,16,0.4); }
+.login-error {
+  background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3);
+  border-radius: var(--r); padding: 10px 14px;
+  font-size: 13px; color: var(--danger);
+  margin-bottom: 16px; display: none;
+}
+.login-error.show { display: block; }
+
+/* ═══ TOPBAR ═════════════════════════════════════════════════════════════════ */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; height: 56px; flex-shrink: 0;
+  background: var(--deep);
+  border-bottom: 1px solid rgba(168,196,224,0.08);
+  position: relative;
+}
+.topbar::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: var(--ore);
+}
+.topbar-brand {
+  font-family: var(--font-display); font-size: 20px; font-weight: 800;
+  letter-spacing: 3px; color: white;
+}
+.topbar-brand span { color: var(--ore); }
+.topbar-info {
+  display: flex; align-items: center; gap: 12px;
+}
+.sync-badge {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-family: var(--font-mono);
+  padding: 4px 8px; border-radius: 20px;
+}
+.sync-badge.online { background: rgba(0,229,160,0.12); color: var(--signal); }
+.sync-badge.offline { background: rgba(255,214,10,0.12); color: var(--caution); }
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; }
+.sync-badge.online .sync-dot { background: var(--signal); animation: pulse 2s infinite; }
+.sync-badge.offline .sync-dot { background: var(--caution); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.topbar-user {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--fog);
+  cursor: pointer;
+}
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--steel), var(--plate));
+  border: 1px solid rgba(168,196,224,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600; color: var(--ice);
+}
+
+/* ═══ SUPERVISOR HOME ════════════════════════════════════════════════════════ */
+#homeScreen {
+  background: var(--coal);
+}
+.home-content {
+  flex: 1; overflow-y: auto;
+  padding: 20px 16px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.stat-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.stat-card {
+  background: var(--deep);
+  border: 1px solid rgba(168,196,224,0.08);
+  border-radius: var(--r-lg); padding: 16px;
+  position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+}
+.stat-card.green::before { background: var(--signal); }
+.stat-card.orange::before { background: var(--ore); }
+.stat-card.red::before { background: var(--danger); }
+.stat-card.blue::before { background: #555; }
+.stat-value {
+  font-family: var(--font-display); font-size: 36px; font-weight: 700;
+  line-height: 1; color: white; margin-bottom: 4px;
+}
+.stat-label {
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--fog); font-family: var(--font-mono);
+}
+.stat-unit {
+  font-size: 11px; color: var(--fog); margin-top: 6px;
+}
+.unit-badge {
+  display: inline-block; font-size: 10px; letter-spacing: 2px;
+  padding: 4px 10px; border-radius: 2px;
+  background: rgba(204,16,16,0.12); color: var(--ore);
+  border: 1px solid rgba(204,16,16,0.3);
+  font-family: var(--font-mono); text-transform: uppercase; margin-bottom: 16px;
+}
+
+/* ═══ BIG SCAN BUTTON ═══════════════════════════════════════════════════════ */
+.scan-btn-wrap {
+  padding: 0 4px;
+}
+.btn-scan {
+  width: 100%; padding: 24px;
+  background: var(--deep);
+  border: 2px solid var(--ore);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+  position: relative; overflow: hidden;
+}
+.btn-scan::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, var(--ore-glow) 0%, transparent 70%);
+}
+.btn-scan:active { transform: scale(0.97); background: #1a0505; }
+.btn-scan:hover { box-shadow: 0 0 32px rgba(204,16,16,0.25); }
+.scan-icon {
+  width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+  background: rgba(204,16,16,0.12);
+  border: 1px solid rgba(204,16,16,0.4);
+  border-radius: 50%;
+}
+.scan-btn-label {
+  font-family: var(--font-display); font-size: 26px; font-weight: 800;
+  letter-spacing: 3px; text-transform: uppercase; color: white;
+}
+.scan-btn-sub {
+  font-size: 12px; color: var(--fog); font-family: var(--font-mono);
+}
+
+/* ═══ RECENT RECORDS ════════════════════════════════════════════════════════ */
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.section-title {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--fog);
+}
+.section-count {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ore);
+}
+.record-list { display: flex; flex-direction: column; gap: 8px; }
+.record-item {
+  background: var(--deep); border: 1px solid rgba(168,196,224,0.08);
+  border-radius: var(--r); padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px;
+  animation: slideIn 300ms ease;
+}
+@keyframes slideIn { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform:none; } }
+.record-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--steel), var(--plate));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600; color: var(--ice);
+  border: 1px solid rgba(168,196,224,0.15);
+}
+.record-info { flex: 1; min-width: 0; }
+.record-name {
+  font-size: 14px; font-weight: 500; color: white;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.record-dni {
+  font-size: 11px; color: var(--fog); font-family: var(--font-mono); margin-top: 2px;
+}
+.record-meta { text-align: right; flex-shrink: 0; }
+.record-time {
+  font-family: var(--font-mono); font-size: 13px; color: var(--ore);
+}
+.record-turno {
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--fog); margin-top: 2px;
+}
+.record-method {
+  width: 20px; height: 20px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; flex-shrink: 0;
+}
+.record-method.scanner { background: rgba(0,229,160,0.1); color: var(--signal); }
+.record-method.manual { background: rgba(168,196,224,0.1); color: var(--ice); }
+
+/* ═══ SCANNER SCREEN ════════════════════════════════════════════════════════ */
+#scanScreen {
+  background: var(--coal);
+}
+.scan-area {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding: 20px 16px; gap: 16px; overflow-y: auto;
+}
+.scanner-frame {
+  width: 100%; max-width: 360px;
+  border-radius: var(--r-lg);
+  overflow: hidden; position: relative;
+  border: 2px solid var(--ore);
+  box-shadow: 0 0 40px rgba(204,16,16,0.2);
+}
+.scanner-corners::before, .scanner-corners::after {
+  content: ''; position: absolute; width: 20px; height: 20px; z-index: 10;
+  border-color: var(--ore); border-style: solid;
+}
+.scanner-corners::before { top: 8px; left: 8px; border-width: 3px 0 0 3px; }
+.scanner-corners::after { top: 8px; right: 8px; border-width: 3px 3px 0 0; }
+.scanner-corners-bottom::before, .scanner-corners-bottom::after {
+  content: ''; position: absolute; width: 20px; height: 20px; z-index: 10;
+  border-color: var(--ore); border-style: solid;
+}
+.scanner-corners-bottom::before { bottom: 8px; left: 8px; border-width: 0 0 3px 3px; }
+.scanner-corners-bottom::after { bottom: 8px; right: 8px; border-width: 0 3px 3px 0; }
+#scannerVideo {
+  width: 100%; height: 240px; object-fit: cover;
+  background: #000; display: block;
+}
+.scan-line {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ore), transparent);
+  animation: scanLine 2s linear infinite; z-index: 5;
+  box-shadow: 0 0 8px var(--ore);
+}
+@keyframes scanLine { 0%{top:10%} 100%{top:90%} }
+#quaggaTarget { width:100%; height:240px; background:#000; position:relative; }
+#quaggaTarget canvas { position:absolute; top:0; left:0; }
+#quaggaTarget video { width:100%; height:100%; object-fit:cover; }
+.scan-hint {
+  font-size: 12px; color: var(--fog); font-family: var(--font-mono);
+  text-align: center; letter-spacing: 1px; padding: 8px 0;
+}
+.divider-or {
+  display: flex; align-items: center; gap: 12px; width: 100%; max-width: 360px;
+}
+.divider-or::before, .divider-or::after {
+  content: ''; flex: 1; height: 1px; background: rgba(168,196,224,0.1);
+}
+.divider-or span { font-size: 11px; color: var(--fog); font-family: var(--font-mono); }
+
+/* Manual input zone */
+.manual-zone {
+  width: 100%; max-width: 360px;
+}
+.manual-label {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--fog); font-family: var(--font-mono); margin-bottom: 8px; display: block;
+}
+.dni-input-row {
+  display: flex; gap: 8px;
+}
+.dni-input {
+  flex: 1; padding: 14px 16px;
+  background: var(--plate); border: 1px solid rgba(168,196,224,0.12);
+  border-radius: var(--r); color: white; font-size: 18px;
+  font-family: var(--font-mono); letter-spacing: 3px;
+  outline: none; text-align: center;
+  transition: border-color var(--transition);
+}
+.dni-input:focus { border-color: var(--ore); }
+.btn-search {
+  padding: 14px 20px;
+  background: var(--ore); border: none; border-radius: var(--r);
+  color: var(--coal); font-size: 18px; cursor: pointer;
+  transition: transform var(--transition);
+}
+.btn-search:active { transform: scale(0.95); }
+
+/* Worker preview card */
+.worker-card {
+  width: 100%; max-width: 360px;
+  background: var(--deep); border: 1px solid var(--signal);
+  border-radius: var(--r-lg); padding: 20px;
+  display: none;
+  animation: popIn 250ms cubic-bezier(0.34,1.56,0.64,1);
+}
+.worker-card.show { display: block; }
+@keyframes popIn { from{opacity:0;transform:scale(0.92)} to{opacity:1;transform:scale(1)} }
+.worker-card-top {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+}
+.worker-big-avatar {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--steel), var(--plate));
+  border: 2px solid var(--signal);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700; color: white;
+  flex-shrink: 0;
+}
+.worker-details { flex: 1; }
+.worker-name {
+  font-family: var(--font-display); font-size: 20px; font-weight: 600;
+  color: white; line-height: 1.1; margin-bottom: 4px;
+}
+.worker-dni-tag {
+  font-family: var(--font-mono); font-size: 12px; color: var(--fog);
+}
+.worker-meta {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 16px;
+}
+.worker-meta-item { background: var(--plate); border-radius: var(--r); padding: 10px; }
+.worker-meta-label {
+  font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--fog); font-family: var(--font-mono); margin-bottom: 3px;
+}
+.worker-meta-value { font-size: 13px; color: white; font-weight: 500; }
+.btn-confirm {
+  width: 100%; padding: 16px;
+  background: linear-gradient(135deg, var(--signal-dim), var(--signal));
+  border: none; border-radius: var(--r);
+  color: var(--coal); font-size: 15px; font-weight: 700;
+  font-family: var(--font-display); letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.btn-confirm:hover { box-shadow: 0 4px 20px rgba(0,229,160,0.3); }
+.btn-confirm:active { transform: scale(0.97); }
+
+.worker-not-found {
+  width: 100%; max-width: 360px;
+  background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.3);
+  border-radius: var(--r-lg); padding: 20px; text-align: center;
+  display: none;
+}
+.worker-not-found.show { display: block; }
+.not-found-icon { font-size: 32px; margin-bottom: 8px; }
+.not-found-msg { color: var(--danger); font-size: 14px; margin-bottom: 4px; }
+.not-found-sub { color: var(--fog); font-size: 12px; font-family: var(--font-mono); }
+
+/* ═══ SUCCESS FLASH ══════════════════════════════════════════════════════════ */
+.success-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,229,160,0.08);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 300ms;
+}
+.success-overlay.show { opacity: 1; }
+.success-icon-big {
+  width: 96px; height: 96px; border-radius: 50%;
+  background: var(--signal-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 44px; margin-bottom: 20px;
+  animation: scaleIn 400ms cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes scaleIn { from{transform:scale(0)} to{transform:scale(1)} }
+.success-text {
+  font-family: var(--font-display); font-size: 28px; font-weight: 700;
+  color: white; letter-spacing: 2px;
+}
+.success-sub { color: var(--signal); font-family: var(--font-mono); font-size: 13px; margin-top: 6px; }
+
+/* ═══ ADMIN DASHBOARD ═══════════════════════════════════════════════════════ */
+#dashScreen { background: var(--coal); }
+.dash-content { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
+.dash-header-card {
+  background: var(--deep); border: 1px solid rgba(168,196,224,0.08);
+  border-radius: var(--r-lg); padding: 20px;
+  position: relative; overflow: hidden;
+}
+.dash-header-card::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height:3px;
+  background: var(--ore);
+}
+.dash-title {
+  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  letter-spacing: 3px; text-transform: uppercase; color: var(--fog); margin-bottom: 8px;
+}
+.dash-total {
+  font-family: var(--font-display); font-size: 60px; font-weight: 800;
+  color: white; line-height: 1;
+}
+.dash-total span { color: var(--ore); }
+.dash-date {
+  font-family: var(--font-mono); font-size: 12px; color: var(--fog); margin-top: 6px;
+}
+.units-grid { display: flex; flex-direction: column; gap: 10px; }
+.unit-row {
+  background: var(--deep); border: 1px solid rgba(168,196,224,0.08);
+  border-radius: var(--r-lg); padding: 16px;
+  display: flex; align-items: center; gap: 14px;
+}
+.unit-name-col { flex: 1; min-width: 0; }
+.unit-name {
+  font-size: 14px; font-weight: 500; color: white; margin-bottom: 2px;
+}
+.unit-code {
+  font-size: 11px; color: var(--fog); font-family: var(--font-mono);
+}
+.unit-bar-col { flex: 1.2; }
+.unit-bar-bg {
+  height: 8px; background: var(--plate); border-radius: 4px; overflow: hidden;
+}
+.unit-bar-fill {
+  height: 100%; border-radius: 4px;
+  transition: width 800ms cubic-bezier(0.4,0,0.2,1);
+}
+.unit-count {
+  font-family: var(--font-display); font-size: 24px; font-weight: 700; color: white;
+  white-space: nowrap;
+}
+.unit-sub { font-size: 10px; color: var(--fog); text-align: right; }
+
+/* Bar colors */
+.bar-c1 { background: linear-gradient(90deg, var(--signal-dim), var(--signal)); }
+.bar-c2 { background: linear-gradient(90deg, var(--ore-dim), var(--ore)); }
+.bar-c3 { background: linear-gradient(90deg, #3a7bd5, #5b9bff); }
+.bar-c4 { background: linear-gradient(90deg, var(--copper), #f5a623); }
+
+/* Pending sync section */
+.pending-card {
+  background: rgba(255,214,10,0.06); border: 1px solid rgba(255,214,10,0.2);
+  border-radius: var(--r-lg); padding: 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.pending-icon { font-size: 24px; }
+.pending-text { flex: 1; }
+.pending-title { font-size: 13px; font-weight: 500; color: var(--caution); }
+.pending-sub { font-size: 11px; color: var(--fog); font-family: var(--font-mono); margin-top: 2px; }
+.btn-sync {
+  padding: 8px 16px; background: rgba(255,214,10,0.15);
+  border: 1px solid var(--caution); border-radius: var(--r);
+  color: var(--caution); font-size: 12px; font-family: var(--font-mono);
+  cursor: pointer; letter-spacing: 1px; transition: background var(--transition);
+}
+.btn-sync:hover { background: rgba(255,214,10,0.25); }
+
+/* ═══ BOTTOM NAV ══════════════════════════════════════════════════════════ */
+.bottom-nav {
+  display: flex; flex-shrink: 0;
+  background: var(--deep);
+  border-top: 1px solid rgba(168,196,224,0.08);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 12px 8px; gap: 4px;
+  cursor: pointer; border: none; background: none;
+  transition: color var(--transition);
+  color: var(--fog);
+}
+.nav-item.active { color: var(--ore); }
+.nav-icon { font-size: 20px; }
+.nav-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; font-family: var(--font-mono); }
+
+/* Scan nav item special */
+.nav-item.scan-nav {
+  position: relative; top: -16px;
+}
+.nav-item.scan-nav .nav-icon-wrap {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--ore);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; box-shadow: 0 4px 16px rgba(204,16,16,0.4);
+  border: 3px solid var(--coal);
+  transition: transform var(--transition);
+}
+.nav-item.scan-nav:active .nav-icon-wrap { transform: scale(0.92); }
+.nav-item.scan-nav .nav-label { color: var(--ore); margin-top: 4px; }
+
+/* ═══ BACK BUTTON ════════════════════════════════════════════════════════════ */
+.topbar-back {
+  background: none; border: none; color: var(--fog);
+  font-size: 20px; cursor: pointer; padding: 8px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-family: var(--font-mono);
+  transition: color var(--transition);
+}
+.topbar-back:hover { color: var(--ice); }
+
+/* ═══ SCROLLBAR ══════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--steel); border-radius: 2px; }
+
+/* ═══ TOAST ══════════════════════════════════════════════════════════════════ */
+.toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--plate); border: 1px solid rgba(168,196,224,0.15);
+  border-radius: 24px; padding: 10px 20px;
+  font-size: 13px; font-family: var(--font-mono); color: var(--ice);
+  white-space: nowrap; z-index: 500;
+  opacity: 0; transition: all 300ms;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Offline indicator */
+.offline-banner {
+  background: rgba(255,214,10,0.1); border-bottom: 1px solid rgba(255,214,10,0.2);
+  padding: 6px 16px; text-align: center;
+  font-size: 11px; font-family: var(--font-mono); color: var(--caution);
+  letter-spacing: 1px; display: none;
+}
+.offline-banner.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ══════════════════════════════════════════════════════════════ -->
+<div id="loginScreen" class="screen active">
+    <div class="login-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">⛏️</div>
+        <div class="logo-text">DI<span>MARZA</span></div>
+      </div>
+      <div class="login-subtitle">Control de Asistencia de Personal</div>
+    </div>
+  <div class="login-card">
+    <div class="login-error" id="loginError">Usuario o PIN incorrecto. Intente nuevamente.</div>
+    <div class="field-group">
+      <label class="field-label">Correo o Usuario</label>
+      <input class="field-input" id="loginEmail" type="email" placeholder="supervisor@minera.com" autocomplete="off">
+    </div>
+    <div class="field-group">
+      <label class="field-label">PIN de Acceso</label>
+      <input class="field-input" id="loginPin" type="password" placeholder="••••••" maxlength="6" inputmode="numeric">
+    </div>
+    <button class="btn-login" onclick="doLogin()">INGRESAR</button>
+  </div>
+</div>
+
+<!-- ═══ HOME (SUPERVISOR) ════════════════════════════════════════════════════ -->
+<div id="homeScreen" class="screen">
+  <div class="topbar">
+    <div class="topbar-brand">DI<span>MARZA</span></div>
+    <div class="topbar-info">
+      <div class="sync-badge online" id="syncBadge">
+        <div class="sync-dot"></div>
+        <span id="syncLabel">EN LÍNEA</span>
+      </div>
+      <div class="topbar-user" onclick="doLogout()">
+        <div class="avatar" id="userAvatar">?</div>
+      </div>
+    </div>
+  </div>
+  <div class="offline-banner" id="offlineBanner">⚠ MODO OFFLINE — Los registros se sincronizarán al recuperar conexión</div>
+  <div class="home-content">
+    <div class="unit-badge" id="unitBadge">── CARGANDO UNIDAD ──</div>
+    <div class="stat-row">
+      <div class="stat-card green">
+        <div class="stat-value" id="statHoy">0</div>
+        <div class="stat-label">Hoy</div>
+        <div class="stat-unit">registros del turno</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-value" id="statPendientes">0</div>
+        <div class="stat-label">Pendiente</div>
+        <div class="stat-unit">sin sincronizar</div>
+      </div>
+    </div>
+    <div class="scan-btn-wrap">
+      <button class="btn-scan" onclick="goToScan()">
+        <div class="scan-icon">📷</div>
+        <div class="scan-btn-label">Registrar Asistencia</div>
+        <div class="scan-btn-sub">Escanear DNI · PDF417 · Código de barras</div>
+      </button>
+    </div>
+    <div>
+      <div class="section-head">
+        <span class="section-title">Últimos Registros</span>
+        <span class="section-count" id="recentCount">0 hoy</span>
+      </div>
+      <div class="record-list" id="recordList">
+        <div style="text-align:center;padding:32px 0;color:var(--fog);font-family:var(--font-mono);font-size:12px">
+          Sin registros aún<br>Presiona el botón para comenzar
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-nav" id="homeNav">
+    <button class="nav-item active" onclick="showHome()">
+      <div class="nav-icon">🏠</div>
+      <div class="nav-label">Inicio</div>
+    </button>
+    <button class="nav-item scan-nav" onclick="goToScan()">
+      <div class="nav-icon-wrap">📷</div>
+      <div class="nav-label">Escanear</div>
+    </button>
+    <button class="nav-item" id="dashNavBtn" onclick="showDash()" style="display:none">
+      <div class="nav-icon">📊</div>
+      <div class="nav-label">Dashboard</div>
+    </button>
+    <button class="nav-item" onclick="doLogout()">
+      <div class="nav-icon">⎋</div>
+      <div class="nav-label">Salir</div>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ SCANNER SCREEN ═══════════════════════════════════════════════════════ -->
+<div id="scanScreen" class="screen">
+  <div class="topbar">
+    <button class="topbar-back" onclick="cancelScan()">← Atrás</button>
+    <div class="topbar-brand" style="font-size:15px">Escanear DNI</div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="scan-area">
+
+    <!-- Camera scanner frame -->
+    <div class="scanner-frame scanner-corners scanner-corners-bottom">
+      <div id="quaggaTarget">
+        <div class="scan-line"></div>
+      </div>
+    </div>
+    <div class="scan-hint">Apunte al código de barras en la parte trasera del DNI</div>
+
+    <div class="divider-or"><span>O INGRESE MANUALMENTE</span></div>
+
+    <!-- Manual input -->
+    <div class="manual-zone">
+      <label class="manual-label">Número de DNI (8 dígitos)</label>
+      <div class="dni-input-row">
+        <input class="dni-input" id="dniInput" type="text" maxlength="9"
+          placeholder="12345678" inputmode="numeric"
+          oninput="onDNIInput(this)" onkeydown="if(event.key==='Enter')searchDNI()">
+        <button class="btn-search" onclick="searchDNI()">🔍</button>
+      </div>
+    </div>
+
+    <!-- Worker found card -->
+    <div class="worker-card" id="workerCard">
+      <div class="worker-card-top">
+        <div class="worker-big-avatar" id="workerAvatar"></div>
+        <div class="worker-details">
+          <div class="worker-name" id="workerName"></div>
+          <div class="worker-dni-tag" id="workerDNITag"></div>
+        </div>
+      </div>
+      <div class="worker-meta">
+        <div class="worker-meta-item">
+          <div class="worker-meta-label">Cargo</div>
+          <div class="worker-meta-value" id="workerCargo"></div>
+        </div>
+        <div class="worker-meta-item">
+          <div class="worker-meta-label">Empresa</div>
+          <div class="worker-meta-value" id="workerEmpresa"></div>
+        </div>
+        <div class="worker-meta-item">
+          <div class="worker-meta-label">Estado</div>
+          <div class="worker-meta-value" id="workerEstado"></div>
+        </div>
+        <div class="worker-meta-item">
+          <div class="worker-meta-label">Turno Actual</div>
+          <div class="worker-meta-value" id="workerTurno"></div>
+        </div>
+      </div>
+      <button class="btn-confirm" onclick="confirmRegister()">✓ CONFIRMAR ASISTENCIA</button>
+    </div>
+
+    <!-- Not found -->
+    <div class="worker-not-found" id="workerNotFound">
+      <div class="not-found-icon">⚠️</div>
+      <div class="not-found-msg">DNI no encontrado en el sistema</div>
+      <div class="not-found-sub">Verifique el número o contacte a RR.HH.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ ADMIN DASHBOARD ══════════════════════════════════════════════════════ -->
+<div id="dashScreen" class="screen">
+  <div class="topbar">
+    <div class="topbar-brand">DI<span>MARZA</span></div>
+    <div class="topbar-info">
+      <div class="sync-badge online" id="dashSyncBadge">
+        <div class="sync-dot"></div>
+        <span>EN LÍNEA</span>
+      </div>
+      <div class="topbar-user" onclick="doLogout()">
+        <div class="avatar" id="dashAvatar">A</div>
+      </div>
+    </div>
+  </div>
+  <div class="offline-banner" id="dashOfflineBanner">⚠ MODO OFFLINE</div>
+  <div class="dash-content">
+    <div class="dash-header-card">
+      <div class="dash-title">Total Personal en Planta · Hoy</div>
+      <div class="dash-total" id="dashTotal">0 <span>activos</span></div>
+      <div class="dash-date" id="dashDate"></div>
+    </div>
+
+    <!-- Pending sync -->
+    <div class="pending-card" id="pendingCard" style="display:none">
+      <div class="pending-icon">🔄</div>
+      <div class="pending-text">
+        <div class="pending-title" id="pendingTitle">Registros pendientes de sync</div>
+        <div class="pending-sub" id="pendingSub">Conecte a WiFi para sincronizar</div>
+      </div>
+      <button class="btn-sync" onclick="doSync()">SYNC</button>
+    </div>
+
+    <div>
+      <div class="section-head">
+        <span class="section-title">Personal por Unidad Minera</span>
+        <span class="section-count" id="dashDate2"></span>
+      </div>
+      <div class="units-grid" id="unitsGrid"></div>
+    </div>
+
+    <div>
+      <div class="section-head">
+        <span class="section-title">Todos los Registros de Hoy</span>
+        <span class="section-count" id="allCount"></span>
+      </div>
+      <div class="record-list" id="allRecordList"></div>
+    </div>
+  </div>
+  <div class="bottom-nav">
+    <button class="nav-item" onclick="showHome()">
+      <div class="nav-icon">🏠</div>
+      <div class="nav-label">Inicio</div>
+    </button>
+    <button class="nav-item scan-nav" onclick="goToScan()">
+      <div class="nav-icon-wrap">📷</div>
+      <div class="nav-label">Escanear</div>
+    </button>
+    <button class="nav-item active">
+      <div class="nav-icon">📊</div>
+      <div class="nav-label">Dashboard</div>
+    </button>
+    <button class="nav-item" onclick="doLogout()">
+      <div class="nav-icon">⎋</div>
+      <div class="nav-label">Salir</div>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ SUCCESS OVERLAY ══════════════════════════════════════════════════════ -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-icon-big">✓</div>
+  <div class="success-text">ASISTENCIA REGISTRADA</div>
+  <div class="success-sub" id="successSub"></div>
+</div>
+
+<!-- ═══ TOAST ══════════════════════════════════════════════════════════════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// DATABASE (localStorage / Offline Store)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DB_PERSONAL = 'db_personal';
+const DB_SUPERVISORES = 'db_supervisores';
+const DB_REGISTROS = 'db_registros';
+const DB_UNIDADES = 'db_unidades';
+
+// Seed data
+const SEED_SUPERVISORES = [
+  { email: 'admin@minera.com', nombre: 'Carlos Mendoza R.', pin: '1234', unidad: 'UM-001', rol: 'Administrador', activo: true },
+  { email: 'sup1@minera.com', nombre: 'Rosa Quispe L.', pin: '2222', unidad: 'UM-001', rol: 'Supervisor', activo: true },
+  { email: 'sup2@minera.com', nombre: 'Juan Flores T.', pin: '3333', unidad: 'UM-002', rol: 'Supervisor', activo: true },
+  { email: 'sup3@minera.com', nombre: 'María Castro B.', pin: '4444', unidad: 'UM-003', rol: 'Supervisor', activo: true },
+];
+
+const SEED_UNIDADES = [
+  { id: 'UM-001', nombre: 'Unidad Toquepala', ubicacion: 'Tacna', capacidad: 850 },
+  { id: 'UM-002', nombre: 'Unidad Cuajone', ubicacion: 'Moquegua', capacidad: 620 },
+  { id: 'UM-003', nombre: 'Unidad Cerro Verde', ubicacion: 'Arequipa', capacidad: 940 },
+  { id: 'UM-004', nombre: 'Unidad Antamina', ubicacion: 'Áncash', capacidad: 1100 },
+];
+
+const SEED_PERSONAL = [
+  { dni: '12345678', nombres: 'Alejandro', apellidos: 'García Quispe', cargo: 'Operador de Perforadora', empresa: 'MinCorp SAC', unidad: 'UM-001', estado: 'Activo' },
+  { dni: '23456789', nombres: 'Rosa María', apellidos: 'Flores Mamani', cargo: 'Técnico Electricista', empresa: 'ElecMin SRL', unidad: 'UM-001', estado: 'Activo' },
+  { dni: '34567890', nombres: 'Carlos Alberto', apellidos: 'Rodríguez Torres', cargo: 'Supervisor de Guardia', empresa: 'MinCorp SAC', unidad: 'UM-001', estado: 'Activo' },
+  { dni: '45678901', nombres: 'Lucía Esperanza', apellidos: 'Mamani Huanca', cargo: 'Operador de Volquete', empresa: 'TransMin SA', unidad: 'UM-002', estado: 'Activo' },
+  { dni: '56789012', nombres: 'Pedro Pablo', apellidos: 'Condori Quispe', cargo: 'Mecánico Industrial', empresa: 'ElecMin SRL', unidad: 'UM-002', estado: 'Activo' },
+  { dni: '67890123', nombres: 'Ana Cecilia', apellidos: 'Vargas Ponce', cargo: 'Enfermera Ocupacional', empresa: 'MinCorp SAC', unidad: 'UM-001', estado: 'Activo' },
+  { dni: '78901234', nombres: 'Marco Antonio', apellidos: 'Huanca Lima', cargo: 'Ayudante de Minería', empresa: 'ServMin SRL', unidad: 'UM-003', estado: 'Activo' },
+  { dni: '89012345', nombres: 'Elena Patricia', apellidos: 'Soto Ccallo', cargo: 'Operador de Cargador', empresa: 'TransMin SA', unidad: 'UM-003', estado: 'Trasladado' },
+  { dni: '90123456', nombres: 'Luis Fernando', apellidos: 'Apaza Turpo', cargo: 'Perforista', empresa: 'MinCorp SAC', unidad: 'UM-002', estado: 'Activo' },
+  { dni: '01234567', nombres: 'Silvia Milagros', apellidos: 'Quispe Adco', cargo: 'Técnico Soldador', empresa: 'ElecMin SRL', unidad: 'UM-001', estado: 'Activo' },
+  { dni: '11223344', nombres: 'Roberto Emilio', apellidos: 'Chambi Lazo', cargo: 'Operador de Excavadora', empresa: 'ServMin SRL', unidad: 'UM-004', estado: 'Activo' },
+  { dni: '22334455', nombres: 'Carmen Rosa', apellidos: 'Pari Ccoa', cargo: 'Técnico Instrumentista', empresa: 'MinCorp SAC', unidad: 'UM-004', estado: 'Activo' },
+  { dni: '33445566', nombres: 'David Ernesto', apellidos: 'Coaquira Bernal', cargo: 'Electromecánico', empresa: 'ElecMin SRL', unidad: 'UM-003', estado: 'Activo' },
+  { dni: '44556677', nombres: 'Patricia Luz', apellidos: 'Maquera Churata', cargo: 'Analista de Laboratorio', empresa: 'MinCorp SAC', unidad: 'UM-001', estado: 'Activo' },
+  { dni: '55667788', nombres: 'Víctor Hugo', apellidos: 'Lipa Choque', cargo: 'Operador de Scooptram', empresa: 'TransMin SA', unidad: 'UM-002', estado: 'Activo' },
+];
+
+function initDB() {
+  if (!localStorage.getItem(DB_SUPERVISORES)) {
+    localStorage.setItem(DB_SUPERVISORES, JSON.stringify(SEED_SUPERVISORES));
+  }
+  if (!localStorage.getItem(DB_UNIDADES)) {
+    localStorage.setItem(DB_UNIDADES, JSON.stringify(SEED_UNIDADES));
+  }
+  if (!localStorage.getItem(DB_PERSONAL)) {
+    localStorage.setItem(DB_PERSONAL, JSON.stringify(SEED_PERSONAL));
+  }
+  if (!localStorage.getItem(DB_REGISTROS)) {
+    localStorage.setItem(DB_REGISTROS, JSON.stringify([]));
+  }
+}
+
+function getPersonal() { return JSON.parse(localStorage.getItem(DB_PERSONAL) || '[]'); }
+function getSupervisores() { return JSON.parse(localStorage.getItem(DB_SUPERVISORES) || '[]'); }
+function getRegistros() { return JSON.parse(localStorage.getItem(DB_REGISTROS) || '[]'); }
+function getUnidades() { return JSON.parse(localStorage.getItem(DB_UNIDADES) || '[]'); }
+function saveRegistros(r) { localStorage.setItem(DB_REGISTROS, JSON.stringify(r)); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let currentUser = null;
+let currentWorker = null;
+let scanMethod = 'manual';
+let quaggaRunning = false;
+let isOnline = navigator.onLine;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREEN ROUTER
+// ═══════════════════════════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showHome() {
+  stopQuagga();
+  showScreen('homeScreen');
+  renderHome();
+}
+
+function showDash() {
+  stopQuagga();
+  showScreen('dashScreen');
+  renderDash();
+}
+
+function goToScan() {
+  currentWorker = null;
+  document.getElementById('workerCard').classList.remove('show');
+  document.getElementById('workerNotFound').classList.remove('show');
+  document.getElementById('dniInput').value = '';
+  showScreen('scanScreen');
+  setTimeout(startQuagga, 400);
+}
+
+function cancelScan() {
+  stopQuagga();
+  if (currentUser?.rol === 'Administrador') showDash();
+  else showHome();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOGIN / LOGOUT
+// ═══════════════════════════════════════════════════════════════════════════
+function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pin = document.getElementById('loginPin').value.trim();
+  const err = document.getElementById('loginError');
+  err.classList.remove('show');
+
+  const supervisores = getSupervisores();
+  const found = supervisores.find(s =>
+    (s.email.toLowerCase() === email || s.nombre.toLowerCase().includes(email)) &&
+    s.pin === pin && s.activo
+  );
+
+  if (!found) { err.classList.add('show'); return; }
+  currentUser = found;
+
+  // Update UI
+  const initials = found.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('userAvatar').textContent = initials;
+  const unidades = getUnidades();
+  const u = unidades.find(x => x.id === found.unidad);
+  document.getElementById('unitBadge').textContent = `── ${u ? u.nombre.toUpperCase() : found.unidad} ──`;
+
+  if (found.rol === 'Administrador') {
+    document.getElementById('dashNavBtn').style.display = 'flex';
+    document.getElementById('dashAvatar').textContent = initials;
+    showDash();
+  } else {
+    showHome();
+    renderHome();
+  }
+}
+
+function doLogout() {
+  currentUser = null;
+  stopQuagga();
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPin').value = '';
+  showScreen('loginScreen');
+}
+
+// Enter key on PIN
+document.getElementById('loginPin').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOME RENDER
+// ═══════════════════════════════════════════════════════════════════════════
+function getTodayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getCurrentTurno() {
+  const h = new Date().getHours();
+  return (h >= 6 && h < 18) ? 'Día' : 'Noche';
+}
+
+function renderHome() {
+  if (!currentUser) return;
+  const registros = getRegistros();
+  const today = getTodayStr();
+  const myRegistros = registros.filter(r =>
+    r.emailSupervisor === currentUser.email &&
+    r.fecha === today
+  );
+  const pendientes = registros.filter(r => !r.sincronizado);
+
+  document.getElementById('statHoy').textContent = myRegistros.length;
+  document.getElementById('statPendientes').textContent = pendientes.length;
+  document.getElementById('recentCount').textContent = `${myRegistros.length} hoy`;
+
+  // Recent list
+  const list = document.getElementById('recordList');
+  if (myRegistros.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:32px 0;color:var(--fog);font-family:var(--font-mono);font-size:12px">Sin registros aún<br>Presiona el botón para comenzar</div>`;
+    return;
+  }
+  list.innerHTML = [...myRegistros].reverse().slice(0, 10).map(r => `
+    <div class="record-item">
+      <div class="record-avatar">${r.nombres.charAt(0)}${r.apellidos.charAt(0)}</div>
+      <div class="record-info">
+        <div class="record-name">${r.nombres} ${r.apellidos}</div>
+        <div class="record-dni">${r.dni} · ${r.cargo}</div>
+      </div>
+      <div class="record-meta">
+        <div class="record-time">${r.hora}</div>
+        <div class="record-turno">${r.turno}</div>
+      </div>
+      <div class="record-method ${r.metodo === 'Scanner' ? 'scanner' : 'manual'}">
+        ${r.metodo === 'Scanner' ? '📷' : '⌨'}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD RENDER
+// ═══════════════════════════════════════════════════════════════════════════
+function renderDash() {
+  const registros = getRegistros();
+  const today = getTodayStr();
+  const hoy = registros.filter(r => r.fecha === today);
+  const unidades = getUnidades();
+  const pendientes = registros.filter(r => !r.sincronizado);
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('es-PE', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  document.getElementById('dashDate').textContent = dateStr.toUpperCase();
+  document.getElementById('dashDate2').textContent = `${hoy.length} registros`;
+  document.getElementById('dashTotal').innerHTML = `${hoy.length} <span>activos hoy</span>`;
+  document.getElementById('allCount').textContent = `${hoy.length} total`;
+
+  // Pending card
+  const pCard = document.getElementById('pendingCard');
+  if (pendientes.length > 0) {
+    pCard.style.display = 'flex';
+    document.getElementById('pendingTitle').textContent = `${pendientes.length} registro${pendientes.length>1?'s':''} pendiente${pendientes.length>1?'s':''}`;
+  } else { pCard.style.display = 'none'; }
+
+  // Units grid
+  const barColors = ['bar-c1', 'bar-c2', 'bar-c3', 'bar-c4'];
+  const maxCount = Math.max(...unidades.map(u => hoy.filter(r => r.unidad === u.id).length), 1);
+  document.getElementById('unitsGrid').innerHTML = unidades.map((u, i) => {
+    const count = hoy.filter(r => r.unidad === u.id).length;
+    const pct = Math.round((count / u.capacidad) * 100);
+    const barPct = Math.round((count / maxCount) * 100);
+    return `
+      <div class="unit-row">
+        <div class="unit-name-col">
+          <div class="unit-name">${u.nombre}</div>
+          <div class="unit-code">${u.id} · ${u.ubicacion}</div>
+        </div>
+        <div class="unit-bar-col">
+          <div class="unit-bar-bg">
+            <div class="unit-bar-fill ${barColors[i%4]}" style="width:${barPct}%"></div>
+          </div>
+          <div style="font-size:10px;color:var(--fog);margin-top:3px;font-family:var(--font-mono)">${pct}% capacidad</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;min-width:48px">
+          <div class="unit-count">${count}</div>
+          <div class="unit-sub">de ${u.capacidad}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // All records
+  const allList = document.getElementById('allRecordList');
+  if (hoy.length === 0) {
+    allList.innerHTML = `<div style="text-align:center;padding:24px 0;color:var(--fog);font-family:var(--font-mono);font-size:12px">Sin registros hoy</div>`;
+  } else {
+    allList.innerHTML = [...hoy].reverse().map(r => {
+      const u = unidades.find(x => x.id === r.unidad);
+      return `
+        <div class="record-item">
+          <div class="record-avatar">${r.nombres.charAt(0)}${r.apellidos.charAt(0)}</div>
+          <div class="record-info">
+            <div class="record-name">${r.nombres} ${r.apellidos}</div>
+            <div class="record-dni">${r.dni} · ${u ? u.nombre : r.unidad}</div>
+          </div>
+          <div class="record-meta">
+            <div class="record-time">${r.hora}</div>
+            <div class="record-turno">${r.turno}</div>
+          </div>
+          <div class="record-method ${r.sincronizado ? 'scanner' : 'manual'}" title="${r.sincronizado ? 'Sincronizado' : 'Pendiente'}">
+            ${r.sincronizado ? '✓' : '⏳'}
+          </div>
+        </div>`;
+    }).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DNI SEARCH — busca en tabla Personal
+// ═══════════════════════════════════════════════════════════════════════════
+function extractDNI(raw) {
+  // Fórmula para extraer DNI de código PDF417 peruano
+  // El código puede ser: "IDPERU|12345678|GARCIA|..." o simplemente los 8 dígitos
+  if (!raw) return '';
+  const clean = raw.replace(/\s/g, '');
+  // Intentar extraer 8 dígitos consecutivos
+  const match = clean.match(/\d{8}/);
+  if (match) return match[0];
+  return clean.slice(0, 8);
+}
+
+function onDNIInput(el) {
+  // Solo permite números
+  el.value = el.value.replace(/\D/g, '').slice(0, 8);
+  // Reset results
+  document.getElementById('workerCard').classList.remove('show');
+  document.getElementById('workerNotFound').classList.remove('show');
+}
+
+function searchDNI(rawDni, method) {
+  const input = document.getElementById('dniInput');
+  const dni = extractDNI(rawDni || input.value);
+  if (dni.length < 8) { showToast('Ingrese 8 dígitos'); return; }
+  input.value = dni;
+  scanMethod = method || 'Manual';
+
+  const personal = getPersonal();
+  const found = personal.find(p => p.dni === dni);
+
+  document.getElementById('workerCard').classList.remove('show');
+  document.getElementById('workerNotFound').classList.remove('show');
+
+  if (found) {
+    currentWorker = found;
+    const initials = found.nombres.charAt(0) + found.apellidos.charAt(0);
+    document.getElementById('workerAvatar').textContent = initials;
+    document.getElementById('workerName').textContent = `${found.nombres} ${found.apellidos}`;
+    document.getElementById('workerDNITag').textContent = `DNI: ${found.dni}`;
+    document.getElementById('workerCargo').textContent = found.cargo;
+    document.getElementById('workerEmpresa').textContent = found.empresa;
+    document.getElementById('workerEstado').textContent = found.estado;
+    document.getElementById('workerTurno').textContent = getCurrentTurno();
+    document.getElementById('workerCard').classList.add('show');
+    stopQuagga();
+    // Vibrate on found
+    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+  } else {
+    document.getElementById('workerNotFound').classList.add('show');
+    if (navigator.vibrate) navigator.vibrate([200]);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIRM REGISTER — guarda en localStorage (offline)
+// ═══════════════════════════════════════════════════════════════════════════
+function confirmRegister() {
+  if (!currentWorker || !currentUser) return;
+  const now = new Date();
+  const registro = {
+    id: 'REG-' + Date.now(),
+    dni: currentWorker.dni,
+    nombres: currentWorker.nombres,
+    apellidos: currentWorker.apellidos,
+    cargo: currentWorker.cargo,
+    empresa: currentWorker.empresa,
+    unidad: currentUser.unidad,
+    emailSupervisor: currentUser.email,
+    nombreSupervisor: currentUser.nombre,
+    fecha: now.toISOString().slice(0, 10),
+    hora: now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+    fechaHora: now.toISOString(),
+    turno: getCurrentTurno(),
+    metodo: scanMethod,
+    sincronizado: false,
+  };
+
+  const registros = getRegistros();
+  // Prevenir duplicado en el mismo día
+  const duplicado = registros.find(r => r.dni === registro.dni && r.fecha === registro.fecha);
+  if (duplicado) {
+    showToast('⚠ Ya registrado hoy a las ' + duplicado.hora);
+    setTimeout(() => { if (currentUser?.rol === 'Administrador') showDash(); else showHome(); }, 1800);
+    return;
+  }
+
+  // Guardar localmente PRIMERO (offline-first)
+  registros.push(registro);
+  saveRegistros(registros);
+
+  // Mostrar éxito inmediatamente
+  document.getElementById('successSub').textContent = `${currentWorker.nombres} ${currentWorker.apellidos} · ${registro.hora}`;
+  const overlay = document.getElementById('successOverlay');
+  overlay.classList.add('show');
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+  // Intentar push a Sheets en segundo plano
+  if (isOnline) {
+    pushRegistroToSheets(registro).then(ok => {
+      if (ok) {
+        registro.sincronizado = true;
+        saveRegistros(registros);
+      }
+    });
+  }
+
+  setTimeout(() => {
+    overlay.classList.remove('show');
+    currentWorker = null;
+    if (currentUser?.rol === 'Administrador') showDash();
+    else { showHome(); renderHome(); }
+  }, 2000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// QUAGGA — Scanner de Código de Barras
+// ═══════════════════════════════════════════════════════════════════════════
+function startQuagga() {
+  if (quaggaRunning || typeof Quagga === 'undefined') return;
+
+  Quagga.init({
+    inputStream: {
+      name: 'Live',
+      type: 'LiveStream',
+      target: document.getElementById('quaggaTarget'),
+      constraints: {
+        facingMode: 'environment',
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    },
+    decoder: {
+      readers: ['pdf417_reader', 'code_39_reader', 'code_128_reader'],
+    },
+    locate: true,
+    frequency: 15,
+  }, function(err) {
+    if (err) {
+      console.log('Scanner no disponible:', err);
+      return;
+    }
+    Quagga.start();
+    quaggaRunning = true;
+  });
+
+  Quagga.onDetected(function(result) {
+    if (!result?.codeResult?.code) return;
+    const raw = result.codeResult.code;
+    stopQuagga();
+    scanMethod = 'Scanner';
+    const dni = extractDNI(raw);
+    document.getElementById('dniInput').value = dni;
+    searchDNI(raw, 'Scanner');
+    showToast('📷 Código escaneado');
+  });
+}
+
+function stopQuagga() {
+  if (!quaggaRunning || typeof Quagga === 'undefined') return;
+  try { Quagga.stop(); } catch(e) {}
+  quaggaRunning = false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GOOGLE SHEETS API — Conexión real
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw_EYKvhwneblE737ABSb7O4FlWQzba85y0YHbdZC0JBZLV_5_0c5jf8QpKYcc3ihb-/exec';
+
+// ── Cargar datos desde Sheets (Personal, Supervisores, Unidades)
+async function syncFromSheets() {
+  if (!isOnline) return;
+  try {
+    showToast('🔄 Sincronizando datos...');
+    updateSyncBadge('syncing');
+
+    const res = await fetch(`${SHEETS_URL}?action=getData`, { redirect: 'follow' });
+    const data = await res.json();
+
+    if (data.personal?.length)     localStorage.setItem(DB_PERSONAL,     JSON.stringify(data.personal));
+    if (data.supervisores?.length)  localStorage.setItem(DB_SUPERVISORES, JSON.stringify(data.supervisores));
+    if (data.unidades?.length)      localStorage.setItem(DB_UNIDADES,     JSON.stringify(data.unidades));
+
+    // Marcar timestamp de última sync
+    localStorage.setItem('last_sync', new Date().toISOString());
+    showToast('✓ Datos actualizados desde Sheets');
+    updateSyncBadge('online');
+    return true;
+  } catch(e) {
+    console.warn('syncFromSheets error:', e);
+    showToast('⚠ Sin conexión — usando datos locales');
+    updateSyncBadge('offline');
+    return false;
+  }
+}
+
+// ── Enviar un registro nuevo a Sheets
+async function pushRegistroToSheets(registro) {
+  if (!isOnline) return false;
+  try {
+    const res = await fetch(SHEETS_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' }, // evita preflight CORS
+      body: JSON.stringify({ action: 'addRegistro', registro })
+    });
+    const result = await res.json();
+    return result.success === true;
+  } catch(e) {
+    console.warn('pushRegistro error:', e);
+    return false;
+  }
+}
+
+// ── Sincronizar todos los registros pendientes locales → Sheets
+async function doSync() {
+  if (!isOnline) { showToast('⚠ Sin conexión a internet'); return; }
+
+  const registros = getRegistros();
+  const pendientes = registros.filter(r => !r.sincronizado);
+
+  if (pendientes.length === 0) {
+    showToast('✓ Todo sincronizado');
+    await syncFromSheets();
+    renderDash();
+    return;
+  }
+
+  showToast(`🔄 Enviando ${pendientes.length} registros...`);
+  updateSyncBadge('syncing');
+  let enviados = 0;
+
+  for (const reg of pendientes) {
+    const ok = await pushRegistroToSheets(reg);
+    if (ok) {
+      reg.sincronizado = true;
+      enviados++;
+    }
+  }
+
+  saveRegistros(registros);
+  await syncFromSheets();
+  showToast(`✓ ${enviados} registro(s) sincronizado(s)`);
+  updateSyncBadge('online');
+  renderDash();
+}
+
+// ── Badge de sync animado
+function updateSyncBadge(state) {
+  const badge = document.getElementById('syncBadge');
+  const label = document.getElementById('syncLabel');
+  if (state === 'syncing') {
+    badge.className = 'sync-badge online';
+    label.textContent = 'SYNC...';
+  } else if (state === 'online') {
+    badge.className = 'sync-badge online';
+    label.textContent = 'EN LÍNEA';
+  } else {
+    badge.className = 'sync-badge offline';
+    label.textContent = 'OFFLINE';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ONLINE / OFFLINE DETECTION
+// ═══════════════════════════════════════════════════════════════════════════
+function updateOnlineStatus() {
+  isOnline = navigator.onLine;
+  const banner = document.getElementById('offlineBanner');
+  const dashBanner = document.getElementById('dashOfflineBanner');
+  if (isOnline) {
+    updateSyncBadge('online');
+    banner.classList.remove('show');
+    dashBanner.classList.remove('show');
+    // Auto-sync al recuperar conexión
+    setTimeout(() => {
+      doSync();
+    }, 1000);
+  } else {
+    updateSyncBadge('offline');
+    banner.classList.add('show');
+    dashBanner.classList.add('show');
+  }
+}
+
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT — Arranca la app
+// ═══════════════════════════════════════════════════════════════════════════
+initDB();
+updateOnlineStatus();
+
+// Sincronización inicial al cargar (si hay internet)
+window.addEventListener('load', () => {
+  if (navigator.onLine) {
+    setTimeout(syncFromSheets, 1500);
+  }
+});
+
+// Auto-sync cada 5 minutos si hay conexión
+setInterval(() => {
+  if (navigator.onLine) doSync();
+}, 5 * 60 * 1000);
+
+</script>
+</body>
+</html>
