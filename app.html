@@ -636,14 +636,14 @@ async function renderHome() {
   let mios = [];
   if (isOnline) {
     try {
-      const res  = await fetch(SB_REG + '?Fecha=' + today + '&DNI_Supervisor=' + currentUser.dni, {cache:'no-store'});
+      const res  = await fetch(SB_REG, {cache:'no-store'});
       const data = await res.json();
       if (Array.isArray(data)) {
         mios = data.map(r => ({
           dni:String(r.DNI||r.dni||''), nombres:String(r.Nombres||r.nombres||''),
           apellidos:String(r.Apellidos||r.apellidos||''), cargo:String(r.Cargo||r.cargo||''),
           dniSupervisor:String(r.DNI_Supervisor||r.dniSupervisor||''),
-          fecha:String(r.Fecha||r.fecha||''), hora:String(r.Hora||r.hora||''),
+          fecha:String(r.Fecha||r.fecha||'').trim(), hora:String(r.Hora||r.hora||''),
           turno:String(r.Turno||r.turno||''), sincronizado:true
         })).filter(r => r.fecha===today && r.dniSupervisor===currentUser.dni);
       }
@@ -671,10 +671,30 @@ function initHistorial() {
   document.getElementById('histDate').value = getTodayStr();
   renderHistorial();
 }
-function renderHistorial() {
+async function renderHistorial() {
   const fecha = document.getElementById('histDate').value || getTodayStr();
-  const regs  = getRegistros().filter(r => r.dniSupervisor===currentUser?.dni && r.fecha===fecha);
   document.getElementById('histTitle').textContent = 'Registros del ' + fecha;
+  document.getElementById('histCount').textContent = 'Cargando...';
+  let regs = [];
+  if (isOnline) {
+    try {
+      const res  = await fetch(SB_REG, {cache:'no-store'});
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        regs = data.map(r => ({
+          dni:String(r.DNI||r.dni||''), nombres:String(r.Nombres||r.nombres||''),
+          apellidos:String(r.Apellidos||r.apellidos||''), cargo:String(r.Cargo||r.cargo||''),
+          dniSupervisor:String(r.DNI_Supervisor||r.dniSupervisor||''),
+          fecha:String(r.Fecha||r.fecha||'').trim(), hora:String(r.Hora||r.hora||''),
+          turno:String(r.Turno||r.turno||''), sincronizado:true
+        })).filter(r => r.fecha===fecha && r.dniSupervisor===currentUser?.dni);
+      }
+    } catch(e) {
+      regs = getRegistros().filter(r => r.dniSupervisor===currentUser?.dni && r.fecha===fecha);
+    }
+  } else {
+    regs = getRegistros().filter(r => r.dniSupervisor===currentUser?.dni && r.fecha===fecha);
+  }
   document.getElementById('histCount').textContent = regs.length + ' registros';
   if (!regs.length) {
     document.getElementById('histList').innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--fog);font-family:var(--font-mono);font-size:12px">Sin registros en esta fecha</div>';
@@ -696,7 +716,7 @@ async function renderDash() {
   let hoy = [];
   if (isOnline) {
     try {
-      const res  = await fetch(SB_REG + '?Fecha=' + today, {cache:'no-store'});
+      const res  = await fetch(SB_REG, {cache:'no-store'});
       const data = await res.json();
       if (Array.isArray(data)) {
         hoy = data.map(r => ({
@@ -708,7 +728,7 @@ async function renderDash() {
           unidad:          String(r.Unidad           || r.unidad          || ''),
           dniSupervisor:   String(r.DNI_Supervisor   || r.dniSupervisor   || ''),
           nombreSupervisor:String(r.Nombre_Supervisor|| r.nombreSupervisor|| ''),
-          fecha:           String(r.Fecha            || r.fecha           || ''),
+          fecha:           String(r.Fecha            || r.fecha           || '').trim(),
           hora:            String(r.Hora             || r.hora            || ''),
           turno:           String(r.Turno            || r.turno           || ''),
           metodo:          String(r.Metodo           || r.metodo          || ''),
@@ -716,7 +736,6 @@ async function renderDash() {
         })).filter(r => r.fecha === today);
       }
     } catch(e) {
-      // Fallback a localStorage
       hoy = getRegistros().filter(r => r.fecha===today);
     }
   } else {
@@ -1359,15 +1378,25 @@ async function syncFromSheets() {
 async function pushRegistroToSheets(r) {
   try {
     const row = {
-      ID_Registro: r.id, DNI: r.dni, Nombres: r.nombres, Apellidos: r.apellidos,
-      Cargo: r.cargo, Unidad: r.unidad, DNI_Supervisor: r.dniSupervisor,
-      Nombre_Supervisor: r.nombreSupervisor, Fecha: r.fecha, Hora: r.hora,
-      Turno: r.turno, Metodo: r.metodo
+      ID_Registro:       r.id                || '',
+      DNI:               r.dni               || '',
+      Nombres:           r.nombres           || '',
+      Apellidos:         r.apellidos         || '',
+      Cargo:             r.cargo             || '',
+      Unidad:            r.unidad            || 'UM-QUE',
+      DNI_Supervisor:    r.dniSupervisor     || '',
+      Nombre_Supervisor: r.nombreSupervisor  || '',
+      Fecha:             r.fecha             || '',
+      Hora:              r.hora              || '',
+      Turno:             r.turno             || '',
+      Metodo:            r.metodo            || 'Scanner'
     };
-    await fetch(SB_REG, {method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(row)});
-    return true;
+    const res = await fetch(SB_REG, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(row)
+    });
+    return res.ok;
   } catch(e){ return false; }
 }
 
