@@ -9,6 +9,8 @@
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -421,13 +423,7 @@ canvas{max-height:200px}
           <button class="pin-toggle" onclick="togglePinVis('pinConfirm',this)">👁</button>
         </div>
       </div>
-      <div id="pinSuccess" style="background:var(--signal-light);border:1px solid var(--signal);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--signal);display:none;margin-bottom:10px">✓ PIN cambiado correctamente</div>
-      <button class="btn-primary" onclick="cambiarPin()">GUARDAR NUEVO PIN</button>
-    </div></div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════
+      <div id="pinSuccess" style="background:var(--signal-light);border:1px solid var(--signal);border-radius:var(--r);padding:8px 12px;font-size:12px<!-- ══════════════════════════════════════════════
   ADMIN: DASHBOARD
 ══════════════════════════════════════════════ -->
 <div id="dashScreen" class="screen">
@@ -442,11 +438,37 @@ canvas{max-height:200px}
   </div>
   <div class="offline-banner" id="offlineBannerDash">SIN CONEXIÓN — MODO OFFLINE</div>
   <div class="content">
+
+    <!-- DATE + REFRESH -->
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="dash-date-bar" style="flex:1">
+        <span style="font-size:14px">📅</span>
+        <input type="date" id="dashDatePicker" onchange="applyDashFilters()">
+        <button onclick="resetDashDate()" style="background:none;border:none;color:var(--text3);font-size:11px;font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px">HOY</button>
+      </div>
+      <button onclick="renderDash()" style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:8px 12px;font-size:18px;cursor:pointer">🔄</button>
+      <button onclick="openModal('modalPDF')" style="background:var(--ore);border:none;border-radius:var(--r-lg);padding:8px 12px;font-family:var(--font-display);font-weight:800;font-size:11px;letter-spacing:1px;color:white;cursor:pointer">PDF ↓</button>
+    </div>
+
+    <!-- FILTER CHIPS -->
+    <div>
+      <div style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">FILTRAR POR</div>
+      <div class="filter-bar" id="filterBar">
+        <div class="chip active" data-filter="all" onclick="setFilter('all',this)">📋 Todo</div>
+        <div class="chip chan" data-filter="Chancado" onclick="setFilter('Chancado',this)">⛏ Chancado</div>
+        <div class="chip mol" data-filter="Molienda" onclick="setFilter('Molienda',this)">⚙ Molienda</div>
+        <div class="chip peb" data-filter="Pebles" onclick="setFilter('Pebles',this)">🏗 Pebles</div>
+        <div class="chip dia" data-filter="Día" onclick="setFilter('Día',this)">☀ Día</div>
+        <div class="chip noche" data-filter="Noche" onclick="setFilter('Noche',this)">🌙 Noche</div>
+      </div>
+      <div class="active-filters" id="activeFiltersLabel" style="display:none"></div>
+    </div>
+
     <!-- KPIs -->
     <div class="kpi-grid">
       <div class="kpi-card ore">
         <div class="kpi-val" id="dashTotal">0</div>
-        <div class="kpi-label">Total hoy</div>
+        <div class="kpi-label">Total filtrado</div>
         <div class="kpi-sub" id="dashDate2"></div>
       </div>
       <div class="kpi-card green">
@@ -462,44 +484,61 @@ canvas{max-height:200px}
         <div class="kpi-label">Supervisores activos</div>
       </div>
     </div>
-    <div id="dashDate" style="font-size:12px;color:var(--text3);text-transform:capitalize"></div>
 
-    <!-- Áreas -->
+    <!-- Áreas — clickables -->
     <div>
-      <div class="section-head"><span class="section-title">Por Área</span></div>
+      <div class="section-head"><span class="section-title">Por Área</span><span style="font-size:10px;color:var(--text3)">Toca para filtrar</span></div>
       <div class="area-grid">
-        <div class="area-card chan"><div class="area-name">CHANCADO</div><div class="area-count" id="countChan">0</div></div>
-        <div class="area-card mol"><div class="area-name">MOLIENDA</div><div class="area-count" id="countMol">0</div></div>
-        <div class="area-card peb"><div class="area-name">PEBLES</div><div class="area-count" id="countPeb">0</div></div>
+        <div class="area-card chan" style="cursor:pointer" onclick="setFilter('Chancado',document.querySelector('[data-filter=Chancado]'))">
+          <div class="area-name">CHANCADO</div><div class="area-count" id="countChan">0</div>
+        </div>
+        <div class="area-card mol" style="cursor:pointer" onclick="setFilter('Molienda',document.querySelector('[data-filter=Molienda]'))">
+          <div class="area-name">MOLIENDA</div><div class="area-count" id="countMol">0</div>
+        </div>
+        <div class="area-card peb" style="cursor:pointer" onclick="setFilter('Pebles',document.querySelector('[data-filter=Pebles]'))">
+          <div class="area-name">PEBLES</div><div class="area-count" id="countPeb">0</div>
+        </div>
       </div>
     </div>
 
-    <!-- Turnos -->
+    <!-- Turnos — clickables -->
     <div>
-      <div class="section-head"><span class="section-title">Por Turno</span></div>
+      <div class="section-head"><span class="section-title">Por Turno</span><span style="font-size:10px;color:var(--text3)">Toca para filtrar</span></div>
       <div class="turno-grid">
-        <div class="turno-card dia"><span class="turno-icon">☀️</span><div class="turno-info"><div class="turno-name">DÍA</div><div class="turno-count" id="turnoDia">0</div></div></div>
-        <div class="turno-card noche"><span class="turno-icon">🌙</span><div class="turno-info"><div class="turno-name">NOCHE</div><div class="turno-count" id="turnoNoche">0</div></div></div>
+        <div class="turno-card dia" style="cursor:pointer" onclick="setFilter('Día',document.querySelector('[data-filter=Día]'))">
+          <span class="turno-icon">☀️</span>
+          <div class="turno-info"><div class="turno-name">DÍA</div><div class="turno-count" id="turnoDia">0</div></div>
+        </div>
+        <div class="turno-card noche" style="cursor:pointer" onclick="setFilter('Noche',document.querySelector('[data-filter=Noche]'))">
+          <span class="turno-icon">🌙</span>
+          <div class="turno-info"><div class="turno-name">NOCHE</div><div class="turno-count" id="turnoNoche">0</div></div>
+        </div>
       </div>
     </div>
 
     <!-- Gráfico por cargo -->
     <div class="card">
-      <div class="card-head"><span class="card-title">Por Cargo / Puesto</span></div>
+      <div class="card-head">
+        <span class="card-title">Por Cargo / Puesto</span>
+        <span style="font-size:10px;color:var(--text3)" id="cargoSubtitle"></span>
+      </div>
       <div class="card-body"><div id="cargoList"></div></div>
     </div>
 
     <!-- Por supervisor -->
     <div class="card">
-      <div class="card-head"><span class="card-title">Por Supervisor</span></div>
+      <div class="card-head">
+        <span class="card-title">Por Supervisor</span>
+        <button onclick="setFilter('all',document.querySelector('[data-filter=all]'))" style="background:none;border:none;font-size:10px;color:var(--ore);font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px" id="clearFilterBtn" style="display:none">✕ LIMPIAR</button>
+      </div>
       <div class="card-body" style="padding:0 16px"><div id="supStatList"></div></div>
     </div>
 
-    <!-- Todos los registros -->
+    <!-- Registros filtrados -->
     <div>
       <div class="section-head">
-        <span class="section-title">Todos los registros de hoy</span>
-        <span class="section-count" id="allCount">0 registros</span>
+        <span class="section-title" id="recordsTitle">Todos los registros</span>
+        <span class="section-count" id="allCount">0</span>
       </div>
       <div class="card"><div class="card-body" style="padding:0 16px"><div id="allRecordList"></div></div></div>
     </div>
@@ -521,11 +560,20 @@ canvas{max-height:200px}
         <div class="card" style="cursor:pointer;text-align:center;padding:18px" onclick="exportarExcel()">
           <div style="font-size:28px">📊</div>
           <div style="font-family:var(--font-display);font-weight:700;font-size:12px;letter-spacing:1px;margin-top:6px">Exportar Excel</div>
-          <div style="font-size:10px;color:var(--text3)">Registros de hoy</div>
+          <div style="font-size:10px;color:var(--text3)">Registros filtrados</div>
         </div>
-        <div class="card" style="cursor:pointer;text-align:center;padding:18px" onclick="showScreen('pinScreen');showPinScreen()">
-          <div style="font-size:28px">🔑</div>
-          <div style="font-family:var(--font-display);font-weight:700;font-size:12px;letter-spacing:1px;margin-top:6px">Cambiar PIN</div>
+        <div class="card" style="cursor:pointer;text-align:center;padding:18px" onclick="openModal('modalPDF')">
+          <div style="font-size:28px">📄</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:12px;letter-spacing:1px;margin-top:6px">Exportar PDF</div>
+          <div style="font-size:10px;color:var(--text3)">Reporte completo</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-secondary" onclick="doLogout()">SALIR</button>
+  </div>
+</div>
+
+iv>
           <div style="font-size:10px;color:var(--text3)">Mi contraseña</div>
         </div>
       </div>
@@ -667,6 +715,46 @@ canvas{max-height:200px}
     </div>
     <button class="btn-primary" onclick="guardarAvatar()">GUARDAR FOTO</button>
     <button class="btn-secondary" onclick="closeModal('modalAvatar')">CANCELAR</button>
+  </div>
+</div>
+
+<!-- PDF EXPORT MODAL -->
+<div class="modal-overlay" id="modalPDF">
+  <div class="modal-sheet">
+    <div class="modal-drag"></div>
+    <div class="modal-title">📄 Exportar PDF</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Selecciona qué incluir en el reporte:</div>
+
+    <div class="pdf-section selected" id="pdfSecResumen" onclick="togglePdfSection(this)">
+      <span class="pdf-check">✓</span>
+      <div class="pdf-section-title">📊 Resumen ejecutivo</div>
+      <div class="pdf-section-desc">KPIs, totales por área y turno</div>
+    </div>
+
+    <div class="pdf-section selected" id="pdfSecSupervisores" onclick="togglePdfSection(this)">
+      <span class="pdf-check">✓</span>
+      <div class="pdf-section-title">👥 Configuración de supervisores</div>
+      <div class="pdf-section-desc">Lista de supervisores con área y turno asignado</div>
+    </div>
+
+    <div class="pdf-section selected" id="pdfSecCargos" onclick="togglePdfSection(this)">
+      <span class="pdf-check">✓</span>
+      <div class="pdf-section-title">⚙ Desglose por cargo/puesto</div>
+      <div class="pdf-section-desc">Cantidad de trabajadores por tipo de puesto</div>
+    </div>
+
+    <div class="pdf-section selected" id="pdfSecRegistros" onclick="togglePdfSection(this)">
+      <span class="pdf-check">✓</span>
+      <div class="pdf-section-title">📋 Registros de asistencia</div>
+      <div class="pdf-section-desc">Tabla completa de ingresos del día filtrado</div>
+    </div>
+
+    <div style="background:var(--bg2);border-radius:var(--r-lg);padding:10px 12px;margin:10px 0;font-size:11px;color:var(--text3)">
+      Filtro activo: <span id="pdfFilterLabel" style="color:var(--ore);font-weight:700">Todos los registros</span>
+    </div>
+
+    <button class="btn-primary" onclick="exportarPDF()">⬇ DESCARGAR PDF</button>
+    <button class="btn-secondary" onclick="closeModal('modalPDF')">CANCELAR</button>
   </div>
 </div>
 
@@ -987,41 +1075,44 @@ async function renderHistorial() {
 }
 
 // ══════════════════════════════════════════════════════
-// ADMIN DASHBOARD
+// ADMIN DASHBOARD — Interactive
 // ══════════════════════════════════════════════════════
+let dashAllRegs   = [];   // full dataset for current date
+let dashFilter    = 'all'; // 'all' | 'Chancado' | 'Molienda' | 'Pebles' | 'Día' | 'Noche'
+let dashDateVal   = '';
+
+function resetDashDate() {
+  document.getElementById('dashDatePicker').value = getTodayStr();
+  dashDateVal = getTodayStr();
+  renderDash();
+}
+
 async function renderDash() {
-  const today = getTodayStr();
-  document.getElementById('dashDate').textContent  = new Date().toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  document.getElementById('dashDate2').textContent = today;
-  let hoy = [];
+  const picker = document.getElementById('dashDatePicker');
+  if (!picker.value) picker.value = getTodayStr();
+  dashDateVal = picker.value;
+  document.getElementById('dashDate2').textContent = dashDateVal;
+
+  let all = [];
   if (isOnline) {
     try {
       const res  = await fetch(SB_REG, {cache:'no-store'});
       const data = await res.json();
-      if (Array.isArray(data)) hoy = data.map(r=>normReg(r)).filter(r=>r.fecha===today);
-    } catch(e) { hoy = getRegistros().filter(r=>r.fecha===today); }
-  } else { hoy = getRegistros().filter(r=>r.fecha===today); }
+      if (Array.isArray(data)) all = data.map(r=>normReg(r)).filter(r=>r.fecha===dashDateVal);
+    } catch(e) { all = getRegistros().filter(r=>r.fecha===dashDateVal); }
+  } else { all = getRegistros().filter(r=>r.fecha===dashDateVal); }
+  dashAllRegs = all;
 
-  // KPIs
-  const dia   = hoy.filter(r=>r.turno==='Día').length;
-  const noche = hoy.filter(r=>r.turno==='Noche').length;
-  document.getElementById('dashTotal').textContent = hoy.length;
-  document.getElementById('dashDia').textContent   = dia;
-  document.getElementById('dashNoche').textContent = noche;
-  document.getElementById('turnoDia').textContent  = dia;
-  document.getElementById('turnoNoche').textContent= noche;
-
-  // Supervisores activos hoy
-  const supsActivos = [...new Set(hoy.map(r=>r.dniSupervisor))].length;
-  document.getElementById('dashSups').textContent = supsActivos;
-
-  // Por área — usando el área del supervisor
+  // Build area map
   const sups = getSupervisores();
   const areaMap = {};
   sups.forEach(s=>{ areaMap[s.dni]=s.area||''; });
+  dashAllRegs.forEach(r=>{ r._area = areaMap[r.dniSupervisor]||''; });
+
+  // Counts for area cards + turno cards (always from full dataset)
   let chan=0,mol=0,peb=0;
-  hoy.forEach(r=>{
-    const a=(areaMap[r.dniSupervisor]||'').toLowerCase();
+  dashAllRegs.forEach(r=>{
+    const a=r._area.toLowerCase();
     if(a.includes('chan')) chan++;
     else if(a.includes('mol')) mol++;
     else if(a.includes('peb')) peb++;
@@ -1029,44 +1120,330 @@ async function renderDash() {
   document.getElementById('countChan').textContent = chan;
   document.getElementById('countMol').textContent  = mol;
   document.getElementById('countPeb').textContent  = peb;
-  document.getElementById('allCount').textContent  = hoy.length+' registros';
+  document.getElementById('turnoDia').textContent   = dashAllRegs.filter(r=>r.turno==='Día').length;
+  document.getElementById('turnoNoche').textContent = dashAllRegs.filter(r=>r.turno==='Noche').length;
 
-  // Cargo bars
+  applyDashFilters();
+}
+
+function setFilter(val, chipEl) {
+  // If clicking same active filter → reset to all
+  if (dashFilter === val && val !== 'all') {
+    dashFilter = 'all';
+    chipEl = document.querySelector('[data-filter=all]');
+  } else {
+    dashFilter = val;
+  }
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  if (chipEl) chipEl.classList.add('active');
+  applyDashFilters();
+}
+
+function applyDashFilters() {
+  const sups = getSupervisores();
+  const areaMap = {};
+  sups.forEach(s=>{ areaMap[s.dni]=s.area||''; });
+
+  let filtered = dashAllRegs;
+  if (dashFilter !== 'all') {
+    if (['Chancado','Molienda','Pebles'].includes(dashFilter)) {
+      filtered = dashAllRegs.filter(r=>(areaMap[r.dniSupervisor]||'').toLowerCase().includes(dashFilter.toLowerCase()));
+    } else if (dashFilter==='Día' || dashFilter==='Noche') {
+      filtered = dashAllRegs.filter(r=>r.turno===dashFilter);
+    }
+  }
+
+  // Active filter label
+  const lbl = document.getElementById('activeFiltersLabel');
+  if (dashFilter !== 'all') {
+    lbl.style.display='block';
+    lbl.textContent = `Mostrando: ${dashFilter} (${filtered.length} de ${dashAllRegs.length} registros)`;
+  } else {
+    lbl.style.display='none';
+  }
+
+  // KPIs
+  const dia   = filtered.filter(r=>r.turno==='Día').length;
+  const noche = filtered.filter(r=>r.turno==='Noche').length;
+  document.getElementById('dashTotal').textContent = filtered.length;
+  document.getElementById('dashDia').textContent   = dia;
+  document.getElementById('dashNoche').textContent = noche;
+  const supsActivos = [...new Set(filtered.map(r=>r.dniSupervisor))].length;
+  document.getElementById('dashSups').textContent = supsActivos;
+
+  // Cargo bars (clickable)
   const cargos = {};
-  hoy.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
+  filtered.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
   const maxC = Math.max(1,...Object.values(cargos));
-  document.getElementById('cargoList').innerHTML = Object.entries(cargos)
-    .sort((a,b)=>b[1]-a[1]).slice(0,10)
-    .map(([c,n])=>`
-      <div class="cargo-row">
-        <div class="cargo-name">${c}</div>
+  const cargoEntries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  document.getElementById('cargoList').innerHTML = cargoEntries.length
+    ? cargoEntries.map(([c,n])=>`
+      <div class="cargo-row" style="cursor:pointer" onclick="filterByCargo('${c.replace(/'/g,'\\'')}')">
+        <div class="cargo-name" title="${c}">${c}</div>
         <div class="cargo-bar-wrap"><div class="cargo-bar" style="width:${(n/maxC)*100}%"></div></div>
         <div class="cargo-count">${n}</div>
-      </div>`).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px 0">Sin datos de cargo</div>';
+      </div>`).join('')
+    : '<div style="color:var(--text3);font-size:12px;padding:8px 0">Sin datos</div>';
+  document.getElementById('cargoSubtitle').textContent = cargoEntries.length ? cargoEntries.length+' puestos' : '';
 
   // Por supervisor
   const bySuper = {};
-  hoy.forEach(r=>{ bySuper[r.dniSupervisor]=(bySuper[r.dniSupervisor]||0)+1; });
+  filtered.forEach(r=>{ bySuper[r.dniSupervisor]=(bySuper[r.dniSupervisor]||0)+1; });
   document.getElementById('supStatList').innerHTML = sups
     .filter(s=>bySuper[s.dni])
     .sort((a,b)=>(bySuper[b.dni]||0)-(bySuper[a.dni]||0))
     .map(s=>{
       const ini = s.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
       const av  = renderAvatarEl(s.dni, ini, 40, 'var(--blue)');
-      return `<div class="sup-row">
+      return `<div class="sup-row" style="cursor:pointer" onclick="filterBySup('${s.dni}','${s.nombre.replace(/'/g,"\\'")}')">
         <div class="sup-av">${av}</div>
         <div class="sup-info">
           <div class="sup-name">${s.nombre}</div>
           <div class="sup-meta">${getAreaBadge(s.area)} ${getTurnoBadge(s.turno)}</div>
         </div>
-        <div class="sup-count">${bySuper[s.dni]||0}</div>
+        <div style="text-align:right">
+          <div class="sup-count">${bySuper[s.dni]||0}</div>
+          <div style="font-size:9px;color:var(--text3)">registros</div>
+        </div>
       </div>`;
-    }).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px 0">Sin registros aún</div>';
+    }).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px 0">Sin registros</div>';
 
-  // All records
-  document.getElementById('allRecordList').innerHTML = hoy.length
-    ? [...hoy].reverse().map(r=>recordHTML(r)).join('')
-    : '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin registros hoy</div>';
+  // Records table
+  const label = dashFilter==='all' ? 'Todos los registros' : `Filtrado: ${dashFilter}`;
+  document.getElementById('recordsTitle').textContent = label;
+  document.getElementById('allCount').textContent = filtered.length+' registros';
+  document.getElementById('allRecordList').innerHTML = filtered.length
+    ? [...filtered].reverse().map(r=>recordHTML(r)).join('')
+    : '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin registros</div>';
+
+  // Update PDF label
+  const pdfLbl = document.getElementById('pdfFilterLabel');
+  if (pdfLbl) pdfLbl.textContent = dashFilter==='all' ? 'Todos los registros' : dashFilter + ` (${filtered.length} reg.)`;
+}
+
+// Cargo-level filter (temporary inline filter, not a chip)
+function filterByCargo(cargo) {
+  // toggle off if same
+  if (dashFilter === cargo) { setFilter('all', document.querySelector('[data-filter=all]')); return; }
+  dashFilter = cargo;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  applyDashFilters();
+  const lbl = document.getElementById('activeFiltersLabel');
+  lbl.style.display='block';
+  lbl.textContent = `Filtrado por cargo: ${cargo}`;
+  showToast('Filtrado: '+cargo);
+}
+
+function filterBySup(dni, nombre) {
+  const areaMap = {};
+  getSupervisores().forEach(s=>{ areaMap[s.dni]=s.area||''; });
+  const regs = dashAllRegs.filter(r=>r.dniSupervisor===dni);
+  document.getElementById('recordsTitle').textContent = 'Registros de '+nombre;
+  document.getElementById('allCount').textContent = regs.length+' registros';
+  document.getElementById('allRecordList').innerHTML = regs.length
+    ? [...regs].reverse().map(r=>recordHTML(r)).join('')
+    : '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin registros</div>';
+  const lbl = document.getElementById('activeFiltersLabel');
+  lbl.style.display='block';
+  lbl.textContent = `Supervisor: ${nombre} · ${regs.length} registros`;
+}
+
+// ══════════════════════════════════════════════════════
+// PDF EXPORT
+// ══════════════════════════════════════════════════════
+function togglePdfSection(el) {
+  el.classList.toggle('selected');
+  el.querySelector('.pdf-check').textContent = el.classList.contains('selected') ? '✓' : '○';
+}
+
+async function exportarPDF() {
+  if (typeof window.jspdf === 'undefined') {
+    showToast('⚠ PDF no disponible, intente de nuevo');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const PAGE_W = 210;
+  const MARGIN = 14;
+  const COL = PAGE_W - MARGIN*2;
+  let y = 0;
+
+  const secResumen     = document.getElementById('pdfSecResumen')?.classList.contains('selected');
+  const secSupervisores= document.getElementById('pdfSecSupervisores')?.classList.contains('selected');
+  const secCargos      = document.getElementById('pdfSecCargos')?.classList.contains('selected');
+  const secRegistros   = document.getElementById('pdfSecRegistros')?.classList.contains('selected');
+
+  const sups   = getSupervisores();
+  const areaMap= {};
+  sups.forEach(s=>{ areaMap[s.dni]=s.area||'Sin área'; });
+
+  // Get filtered records
+  let regs = dashAllRegs;
+  if (dashFilter !== 'all') {
+    if (['Chancado','Molienda','Pebles'].includes(dashFilter)) {
+      regs = dashAllRegs.filter(r=>(areaMap[r.dniSupervisor]||'').toLowerCase().includes(dashFilter.toLowerCase()));
+    } else if (dashFilter==='Día'||dashFilter==='Noche') {
+      regs = dashAllRegs.filter(r=>r.turno===dashFilter);
+    }
+  }
+
+  const filterLabel = dashFilter==='all' ? 'Todos' : dashFilter;
+  const fechaStr = dashDateVal || getTodayStr();
+  const generadoEn = new Date().toLocaleString('es-PE');
+
+  // ── HEADER COVER ──
+  // Red header bar
+  doc.setFillColor(204,16,16);
+  doc.rect(0,0,PAGE_W,32,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(22);
+  doc.setFont('helvetica','bold');
+  doc.text('DIMARZA', MARGIN, 14);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.text('Control de Asistencia — AngloAmerican Quellaveco', MARGIN, 21);
+  doc.setFontSize(8);
+  doc.text(`Fecha: ${fechaStr}  |  Filtro: ${filterLabel}  |  Generado: ${generadoEn}`, MARGIN, 27);
+  y = 40;
+
+  // ── RESUMEN ──
+  if (secResumen) {
+    const dia   = regs.filter(r=>r.turno==='Día').length;
+    const noche = regs.filter(r=>r.turno==='Noche').length;
+    let chan=0,mol=0,peb=0;
+    regs.forEach(r=>{
+      const a=(areaMap[r.dniSupervisor]||'').toLowerCase();
+      if(a.includes('chan')) chan++;
+      else if(a.includes('mol')) mol++;
+      else if(a.includes('peb')) peb++;
+    });
+
+    doc.setTextColor(30,30,30);
+    doc.setFontSize(12);
+    doc.setFont('helvetica','bold');
+    doc.text('RESUMEN EJECUTIVO', MARGIN, y); y+=7;
+
+    // KPI boxes
+    const kpis = [
+      {label:'TOTAL REGISTROS', val:regs.length, color:[204,16,16]},
+      {label:'TURNO DÍA ☀',     val:dia,         color:[245,158,11]},
+      {label:'TURNO NOCHE 🌙',   val:noche,       color:[59,130,246]},
+      {label:'SUPERVISORES',     val:[...new Set(regs.map(r=>r.dniSupervisor))].length, color:[0,168,107]},
+    ];
+    const kw = (COL-6)/4;
+    kpis.forEach((k,i)=>{
+      const kx = MARGIN + i*(kw+2);
+      doc.setFillColor(...k.color);
+      doc.roundedRect(kx, y, kw, 18, 2, 2, 'F');
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(18);
+      doc.setFont('helvetica','bold');
+      doc.text(String(k.val), kx+kw/2, y+10, {align:'center'});
+      doc.setFontSize(6);
+      doc.setFont('helvetica','normal');
+      doc.text(k.label, kx+kw/2, y+15, {align:'center'});
+    });
+    y += 24;
+
+    // Area row
+    doc.setTextColor(80,80,80);
+    doc.setFontSize(9);
+    doc.setFont('helvetica','bold');
+    doc.text('POR ÁREA:', MARGIN, y);
+    doc.setFont('helvetica','normal');
+    doc.text(`  Chancado: ${chan}   Molienda: ${mol}   Pebles: ${peb}`, MARGIN+22, y);
+    y += 10;
+  }
+
+  // ── SUPERVISORES CONFIG ──
+  if (secSupervisores) {
+    if (y > 240) { doc.addPage(); y=20; }
+    doc.setTextColor(30,30,30);
+    doc.setFontSize(12);
+    doc.setFont('helvetica','bold');
+    doc.text('CONFIGURACIÓN DE SUPERVISORES', MARGIN, y); y+=4;
+
+    const supRows = sups.map(s=>[
+      s.dni, s.nombre, s.rol,
+      s.area||'Libre', s.turno||'Libre', s.activo?'Activo':'Inactivo'
+    ]);
+    doc.autoTable({
+      startY: y,
+      head: [['DNI','Nombre','Rol','Área','Turno','Estado']],
+      body: supRows,
+      styles: { fontSize:8, cellPadding:3, font:'helvetica' },
+      headStyles: { fillColor:[204,16,16], textColor:255, fontStyle:'bold' },
+      alternateRowStyles: { fillColor:[248,249,251] },
+      margin: { left:MARGIN, right:MARGIN },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ── CARGOS ──
+  if (secCargos) {
+    if (y > 220) { doc.addPage(); y=20; }
+    doc.setTextColor(30,30,30);
+    doc.setFontSize(12);
+    doc.setFont('helvetica','bold');
+    doc.text('DESGLOSE POR CARGO / PUESTO', MARGIN, y); y+=4;
+
+    const cargos = {};
+    regs.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
+    const cargoRows = Object.entries(cargos).sort((a,b)=>b[1]-a[1]).map(([c,n])=>[c,n,`${Math.round(n/Math.max(regs.length,1)*100)}%`]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Cargo / Puesto', 'Cantidad', '% del Total']],
+      body: cargoRows,
+      styles: { fontSize:8, cellPadding:3 },
+      headStyles: { fillColor:[26,78,138], textColor:255, fontStyle:'bold' },
+      alternateRowStyles: { fillColor:[248,249,251] },
+      margin: { left:MARGIN, right:MARGIN },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ── REGISTROS TABLE ──
+  if (secRegistros) {
+    if (y > 200) { doc.addPage(); y=20; }
+    doc.setTextColor(30,30,30);
+    doc.setFontSize(12);
+    doc.setFont('helvetica','bold');
+    doc.text(`REGISTROS DE ASISTENCIA (${regs.length})`, MARGIN, y); y+=4;
+
+    const regRows = [...regs].reverse().map(r=>[
+      r.dni, r.nombres+' '+r.apellidos, r.cargo,
+      r.hora, r.turno, areaMap[r.dniSupervisor]||'—', r.nombreSupervisor
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['DNI','Nombre Completo','Cargo','Hora','Turno','Área','Supervisor']],
+      body: regRows,
+      styles: { fontSize:7, cellPadding:2 },
+      headStyles: { fillColor:[26,78,138], textColor:255, fontStyle:'bold' },
+      alternateRowStyles: { fillColor:[248,249,251] },
+      columnStyles: { 1:{cellWidth:36}, 2:{cellWidth:28} },
+      margin: { left:MARGIN, right:MARGIN },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  // Footer on all pages
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i=1; i<=totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(160,160,160);
+    doc.setFont('helvetica','normal');
+    doc.text(`DIMARZA SAC — AngloAmerican Quellaveco — Página ${i} de ${totalPages}`, PAGE_W/2, 290, {align:'center'});
+    doc.text('Documento generado automáticamente — Sistema de Control de Asistencia', PAGE_W/2, 294, {align:'center'});
+  }
+
+  const fileName = `Dimarza_Asistencia_${fechaStr}${dashFilter!=='all'?'_'+dashFilter:''}.pdf`;
+  doc.save(fileName);
+  closeModal('modalPDF');
+  showToast('✓ PDF descargado');
 }
 
 // ══════════════════════════════════════════════════════
