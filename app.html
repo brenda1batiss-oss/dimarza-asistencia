@@ -631,11 +631,29 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 // HOME SUPERVISOR
 // ═══════════════════════════════════════════════════════
-function renderHome() {
-  const today    = getTodayStr();
-  const registros = getRegistros();
-  const mios = registros.filter(r => r.dniSupervisor===currentUser?.dni && r.fecha===today);
-  const pend  = registros.filter(r => !r.sincronizado);
+async function renderHome() {
+  const today = getTodayStr();
+  let mios = [];
+  if (isOnline) {
+    try {
+      const res  = await fetch(SB_REG + '?Fecha=' + today + '&DNI_Supervisor=' + currentUser.dni, {cache:'no-store'});
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        mios = data.map(r => ({
+          dni:String(r.DNI||r.dni||''), nombres:String(r.Nombres||r.nombres||''),
+          apellidos:String(r.Apellidos||r.apellidos||''), cargo:String(r.Cargo||r.cargo||''),
+          dniSupervisor:String(r.DNI_Supervisor||r.dniSupervisor||''),
+          fecha:String(r.Fecha||r.fecha||''), hora:String(r.Hora||r.hora||''),
+          turno:String(r.Turno||r.turno||''), sincronizado:true
+        })).filter(r => r.fecha===today && r.dniSupervisor===currentUser.dni);
+      }
+    } catch(e) {
+      mios = getRegistros().filter(r => r.dniSupervisor===currentUser?.dni && r.fecha===today);
+    }
+  } else {
+    mios = getRegistros().filter(r => r.dniSupervisor===currentUser?.dni && r.fecha===today);
+  }
+  const pend = getRegistros().filter(r => !r.sincronizado);
   document.getElementById('statHoy').textContent  = mios.length;
   document.getElementById('statPend').innerHTML   = `${pend.length} <span>⏳</span>`;
   document.getElementById('recentCount').textContent = mios.length + ' hoy';
@@ -668,21 +686,45 @@ function renderHistorial() {
 // ═══════════════════════════════════════════════════════
 // ADMIN DASHBOARD
 // ═══════════════════════════════════════════════════════
-function renderDash() {
+async function renderDash() {
   const today = getTodayStr();
-  const hoy   = getRegistros().filter(r => r.fecha===today);
-  const pend  = getRegistros().filter(r => !r.sincronizado);
-
-  document.getElementById('dashTotal').innerHTML = `${hoy.length} <span>activos</span>`;
   document.getElementById('dashDate').textContent  = new Date().toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('dashDate2').textContent = today;
-  document.getElementById('allCount').textContent  = hoy.length + ' registros';
+  document.getElementById('pendingCard').style.display = 'none';
 
-  document.getElementById('pendingCard').style.display = pend.length ? 'flex' : 'none';
-  if (pend.length) {
-    document.getElementById('pendingTitle').textContent = `${pend.length} registro(s) pendiente(s)`;
-    document.getElementById('pendingSub').textContent   = 'Toque SYNC para enviar a Sheets';
+  // Siempre leer registros de SheetBest si hay conexión
+  let hoy = [];
+  if (isOnline) {
+    try {
+      const res  = await fetch(SB_REG + '?Fecha=' + today, {cache:'no-store'});
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        hoy = data.map(r => ({
+          id:              String(r.ID_Registro      || r.id              || ''),
+          dni:             String(r.DNI              || r.dni             || ''),
+          nombres:         String(r.Nombres          || r.nombres         || ''),
+          apellidos:       String(r.Apellidos        || r.apellidos       || ''),
+          cargo:           String(r.Cargo            || r.cargo           || ''),
+          unidad:          String(r.Unidad           || r.unidad          || ''),
+          dniSupervisor:   String(r.DNI_Supervisor   || r.dniSupervisor   || ''),
+          nombreSupervisor:String(r.Nombre_Supervisor|| r.nombreSupervisor|| ''),
+          fecha:           String(r.Fecha            || r.fecha           || ''),
+          hora:            String(r.Hora             || r.hora            || ''),
+          turno:           String(r.Turno            || r.turno           || ''),
+          metodo:          String(r.Metodo           || r.metodo          || ''),
+          sincronizado:    true
+        })).filter(r => r.fecha === today);
+      }
+    } catch(e) {
+      // Fallback a localStorage
+      hoy = getRegistros().filter(r => r.fecha===today);
+    }
+  } else {
+    hoy = getRegistros().filter(r => r.fecha===today);
   }
+
+  document.getElementById('dashTotal').innerHTML = `${hoy.length} <span>activos</span>`;
+  document.getElementById('allCount').textContent  = hoy.length + ' registros';
 
   // Por supervisor
   const sups = getSupervisores().filter(s=>s.rol==='Supervisor'||s.rol==='Administrador');
