@@ -1338,82 +1338,67 @@ function renderPie(filtered) {
   const cen = document.getElementById('pieCenterN');
   const sub = document.getElementById('cargoSubtitle');
   if (!svg) return;
+  const R=55, r=30, cx=65, cy=65;
 
+  // Build data: prefer cargo, fallback to turno
   const cargos = {};
-  filtered.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
-  const entries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]);
-  const total   = filtered.length;
-
-  if (cen) cen.textContent = total;
-  if (sub) sub.textContent = entries.length ? entries.length+' cargos' : '';
-
+  filtered.forEach(rec=>{ if(rec.cargo&&rec.cargo.trim()) cargos[rec.cargo.trim()]=(cargos[rec.cargo.trim()]||0)+1; });
+  let entries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]);
+  let mode = 'cargo';
   if (!entries.length) {
-    // Try grouping by turno instead
-    const byTurno = {};
-    filtered.forEach(r=>{ const t=r.turno||'Sin turno'; byTurno[t]=(byTurno[t]||0)+1; });
-    const tEntries = Object.entries(byTurno);
-    if (tEntries.length) {
-      // Redraw using turno as substitute
-      const tot2 = filtered.length;
-      if(cen) cen.textContent=tot2;
-      if(sub) sub.textContent='por turno';
-      let sa=0; let paths2='';
-      tEntries.forEach(([t,n],i)=>{
-        const frac=n/tot2, angle=frac*2*Math.PI, ea=sa+angle;
-        const x1=cx+R*Math.cos(sa),y1=cy+R*Math.sin(sa),x2=cx+R*Math.cos(ea),y2=cy+R*Math.sin(ea);
-        const ix1=cx+r*Math.cos(sa),iy1=cy+r*Math.sin(sa),ix2=cx+r*Math.cos(ea),iy2=cy+r*Math.sin(ea);
-        const lg=angle>Math.PI?1:0;
-        const col=PIE_COLORS[i%PIE_COLORS.length];
-        paths2+=`<path d="M${x1},${y1} A${R},${R} 0 ${lg},1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${lg},0 ${ix1},${iy1} Z" fill="${col}" stroke="#fff" stroke-width="1.5"><title>${t}: ${n}</title></path>`;
-        sa=ea;
-      });
-      svg.innerHTML=paths2;
-      if(leg) leg.innerHTML=tEntries.map(([t,n],i)=>`<div style="display:flex;align-items:center;gap:6px;padding:3px 4px"><div style="width:9px;height:9px;border-radius:50%;background:${PIE_COLORS[i%PIE_COLORS.length]};flex-shrink:0"></div><div style="flex:1;font-size:10px;color:var(--text2)">${t}</div><b style="font-family:var(--font-display);font-size:13px">${n}</b><span style="font-size:9px;color:var(--text3);width:26px;text-align:right">${Math.round(n/tot2*100)}%</span></div>`).join('');
-      return;
-    }
-    svg.innerHTML='<circle cx="65" cy="65" r="55" fill="#E2E6EA"/><circle cx="65" cy="65" r="30" fill="#F5F7FA"/>';
-    if (leg) leg.innerHTML='<div style="font-size:11px;color:var(--text3);padding:16px 0;font-style:italic">Carga Personal para ver distribución por cargo</div>';
-    if (cen) cen.textContent='0';
+    mode = 'turno';
+    const ts = {};
+    filtered.forEach(rec=>{ const t=rec.turno||'Sin turno'; ts[t]=(ts[t]||0)+1; });
+    entries = Object.entries(ts).sort((a,b)=>b[1]-a[1]);
+  }
+  const total = filtered.length;
+  if (cen) cen.textContent = total;
+  if (sub) sub.textContent = entries.length ? entries.length+(mode==='cargo'?' cargos':' turnos') : '';
+
+  if (!entries.length || total===0) {
+    svg.innerHTML = '<circle cx="65" cy="65" r="55" fill="#E2E6EA"/><circle cx="65" cy="65" r="30" fill="#F5F7FA"/>';
+    if (leg) leg.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:16px 0;font-style:italic">Sin registros para esta fecha</div>';
+    if (cen) cen.textContent = '0';
     return;
   }
 
-  // Draw SVG doughnut
-  const R=55, r=30, cx=65, cy=65;
-  let startAngle = 0;
-  let paths = '';
-  const cargoTotal = entries.reduce((a,[,n])=>a+n,0);
-
+  const tot2 = entries.reduce((a,[,n])=>a+n, 0);
+  let sa = 0, paths = '';
   entries.forEach(([c,n],i)=>{
-    const frac   = n/cargoTotal;
-    const angle  = frac*2*Math.PI;
-    const endAngle = startAngle+angle;
-    const x1 = cx+R*Math.cos(startAngle), y1=cy+R*Math.sin(startAngle);
-    const x2 = cx+R*Math.cos(endAngle),   y2=cy+R*Math.sin(endAngle);
-    const ix1= cx+r*Math.cos(startAngle), iy1=cy+r*Math.sin(startAngle);
-    const ix2= cx+r*Math.cos(endAngle),   iy2=cy+r*Math.sin(endAngle);
-    const large= angle>Math.PI?1:0;
-    const color= PIE_COLORS[i%PIE_COLORS.length];
-    const safeC= c.replace(/'/g,'&#39;');
-    paths+=`<path d="M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${large},0 ${ix1},${iy1} Z"
-      fill="${color}" stroke="#fff" stroke-width="1.5" style="cursor:pointer;transition:opacity 150ms"
-      onclick="filterByCargo('${safeC}')" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
-      <title>${c}: ${n} (${Math.round(frac*100)}%)</title></path>`;
-    startAngle=endAngle;
+    const frac = n/tot2;
+    const ang  = frac*2*Math.PI;
+    const color = PIE_COLORS[i%PIE_COLORS.length];
+    const safeC = c.replace(/'/g,"&#39;");
+    const pct   = Math.round(frac*100);
+    if (frac >= 0.9999) {
+      paths += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${color}"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff"/>`;
+    } else {
+      const ea = sa+ang;
+      const x1=cx+R*Math.cos(sa), y1=cy+R*Math.sin(sa);
+      const x2=cx+R*Math.cos(ea), y2=cy+R*Math.sin(ea);
+      const ix1=cx+r*Math.cos(sa), iy1=cy+r*Math.sin(sa);
+      const ix2=cx+r*Math.cos(ea), iy2=cy+r*Math.sin(ea);
+      const lg = ang>Math.PI?1:0;
+      paths += `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg},1 ${x2.toFixed(1)},${y2.toFixed(1)} L${ix2.toFixed(1)},${iy2.toFixed(1)} A${r},${r} 0 ${lg},0 ${ix1.toFixed(1)},${iy1.toFixed(1)} Z"
+        fill="${color}" stroke="#fff" stroke-width="1.5" style="cursor:pointer"
+        onclick="filterByCargo('${safeC}')" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
+        <title>${c}: ${n} (${pct}%)</title></path>`;
+      sa = ea;
+    }
   });
-  svg.innerHTML=paths;
+  svg.innerHTML = paths;
 
-  // Legend
-  if (leg) leg.innerHTML = entries.slice(0,10).map(([c,n],i)=>{
-    const pct=Math.round(n/cargoTotal*100);
-    const safeC=c.replace(/'/g,'&#39;');
-    return `<div onclick="filterByCargo('${safeC}')" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 4px;border-radius:5px;transition:background 120ms"
+  if (leg) leg.innerHTML = entries.slice(0,12).map(([c,n],i)=>{
+    const pct=Math.round(n/tot2*100);
+    const safeC=c.replace(/'/g,"&#39;");
+    return `<div onclick="filterByCargo('${safeC}')" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 4px;border-radius:5px"
         onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
       <div style="width:9px;height:9px;border-radius:50%;background:${PIE_COLORS[i%PIE_COLORS.length]};flex-shrink:0"></div>
       <div style="flex:1;font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">${c}</div>
       <b style="font-family:var(--font-display);font-size:13px;color:var(--text);flex-shrink:0">${n}</b>
-      <span style="font-size:9px;color:var(--text3);width:26px;text-align:right">${pct}%</span>
+      <span style="font-size:9px;color:var(--text3);width:28px;text-align:right">${pct}%</span>
     </div>`;
-  }).join('')+(entries.length>10?`<div style="font-size:9px;color:var(--text3);padding:2px 4px">+${entries.length-10} más</div>`:'');
+  }).join('')+(entries.length>12?`<div style="font-size:9px;color:var(--text3);padding:2px 4px">+${entries.length-12} más</div>`:'');
 }
 
 // ── CSS BAR: CARGOS ──
@@ -1421,46 +1406,30 @@ function renderBarCargos(filtered) {
   const el = document.getElementById('barCargos');
   if (!el) return;
   const cargos = {};
-  filtered.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
-  const entries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  window._cargoEntries = entries;
-  const maxV = entries.length ? entries[0][1] : 1;
-  const total = filtered.length || 1;
-
+  filtered.forEach(r=>{ if(r.cargo&&r.cargo.trim()) cargos[r.cargo.trim()]=(cargos[r.cargo.trim()]||0)+1; });
+  let entries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]).slice(0,10);
   if (!entries.length) {
-    // Fallback: show by supervisor name
     const bySup = {};
     filtered.forEach(r=>{ const k=r.nombreSupervisor||r.dniSupervisor||'Sin supervisor'; bySup[k]=(bySup[k]||0)+1; });
-    const supEntries = Object.entries(bySup).sort((a,b)=>b[1]-a[1]).slice(0,10);
-    if (!supEntries.length) { el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0;text-align:center">Sin registros</div>'; return; }
-    const maxSup = supEntries[0][1];
-    el.innerHTML = supEntries.map(([s,n],i)=>{
-      const pct=Math.round(n/maxSup*100);
-      const col=PIE_COLORS[i%PIE_COLORS.length];
-      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px">
-        <div style="font-size:10px;color:var(--text2);width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">${s}</div>
-        <div style="flex:1;height:7px;background:var(--border);border-radius:99px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
-        </div>
-        <b style="font-family:var(--font-display);font-size:13px;color:${col};flex-shrink:0;width:22px;text-align:right">${n}</b>
-      </div>`;
-    }).join('');
-    return;
+    entries = Object.entries(bySup).sort((a,b)=>b[1]-a[1]).slice(0,10);
   }
-
+  if (!entries.length) { el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:12px 0;text-align:center">Sin registros</div>'; return; }
+  window._cargoEntries = entries;
+  const maxV = entries[0][1];
+  const total = filtered.length||1;
   el.innerHTML = entries.map(([c,n],i)=>{
-    const pct = Math.round(n/maxV*100);
-    const pctTotal = Math.round(n/total*100);
-    const color = PIE_COLORS[i%PIE_COLORS.length];
-    const safeC = c.replace(/'/g,'&#39;');
-    return `<div onclick="filterByCargo('${safeC}')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;transition:background 120ms"
+    const pct=Math.round(n/maxV*100);
+    const pctT=Math.round(n/total*100);
+    const color=PIE_COLORS[i%PIE_COLORS.length];
+    const safeC=c.replace(/'/g,"&#39;");
+    return `<div onclick="filterByCargo('${safeC}')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px"
         onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
       <div style="font-size:10px;color:var(--text2);width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">${c}</div>
       <div style="flex:1;height:7px;background:var(--border);border-radius:99px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${color};border-radius:99px;transition:width 400ms"></div>
       </div>
-      <b style="font-family:var(--font-display);font-size:13px;color:var(--text);flex-shrink:0;width:20px;text-align:right">${n}</b>
-      <span style="font-size:9px;color:var(--text3);width:26px;text-align:right">${pctTotal}%</span>
+      <b style="font-family:var(--font-display);font-size:13px;color:${color};flex-shrink:0;width:22px;text-align:right">${n}</b>
+      <span style="font-size:9px;color:var(--text3);width:26px;text-align:right">${pctT}%</span>
     </div>`;
   }).join('');
 }
