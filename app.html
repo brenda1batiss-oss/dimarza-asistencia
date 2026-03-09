@@ -488,100 +488,82 @@ canvas{max-height:200px}
     </div>
 
     <!-- CONTADOR EN TIEMPO REAL -->
-    <div class="card" style="border:2px solid var(--ore)">
-      <div class="card-body" style="display:flex;align-items:center;gap:14px;padding:14px 16px">
-        <div style="width:12px;height:12px;border-radius:50%;background:var(--signal);flex-shrink:0;box-shadow:0 0 0 4px rgba(0,168,107,0.2);animation:pulse 1.5s infinite"></div>
+    <div class="card" style="border:2px solid var(--ore);margin-bottom:0">
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 16px">
+        <div style="width:11px;height:11px;border-radius:50%;background:var(--signal);flex-shrink:0;box-shadow:0 0 0 4px rgba(0,168,107,0.2);animation:pulse 1.5s infinite"></div>
         <div style="flex:1">
-          <div style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase">EN PLANTA AHORA</div>
-          <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">
-            <div id="realtimeCount" style="font-family:var(--font-display);font-size:48px;font-weight:900;line-height:1;color:var(--ore)">0</div>
-            <div style="font-size:13px;color:var(--text3)">trabajadores</div>
+          <div style="font-size:9px;font-family:var(--font-display);font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase">EN PLANTA AHORA</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:1px">
+            <div id="realtimeCount" style="font-family:var(--font-display);font-size:44px;font-weight:900;line-height:1;color:var(--ore)">0</div>
+            <div style="font-size:12px;color:var(--text3)">trabajadores registrados hoy</div>
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:10px;color:var(--text3);font-family:var(--font-display);letter-spacing:1px">ACTUALIZADO</div>
-          <div id="realtimeTime" style="font-family:var(--font-display);font-size:12px;font-weight:700;color:var(--text2);margin-top:2px">--:--</div>
-          <button onclick="renderDash()" style="margin-top:6px;background:var(--ore-light);border:1px solid var(--ore);border-radius:var(--r);padding:3px 10px;font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:1px;color:var(--ore);cursor:pointer">&#x21BA; SYNC</button>
+          <div style="font-size:9px;color:var(--text3);font-family:var(--font-display);letter-spacing:1px">ACTUALIZADO</div>
+          <div id="realtimeTime" style="font-family:var(--font-display);font-size:11px;font-weight:700;color:var(--text2);margin-top:2px">--:--</div>
         </div>
       </div>
     </div>
 
-    <!-- GRAFICO AREAS -->
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">Por Area</span>
-        <span style="font-size:10px;color:var(--text3)">Toca para filtrar</span>
+    <!-- GRAFICOS: AREAS + TURNOS side by side -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+      <!-- AREAS -->
+      <div class="card">
+        <div class="card-head"><span class="card-title" style="font-size:12px">Por Área</span><span style="font-size:9px;color:var(--text3)">toca para filtrar</span></div>
+        <div style="padding:0 12px 12px">
+          <div id="barAreas" style="display:flex;flex-direction:column;gap:7px"></div>
+        </div>
       </div>
-      <div class="card-body" style="display:flex;align-items:center;gap:12px;padding:12px 16px">
-        <div style="position:relative;width:140px;height:140px;flex-shrink:0">
-          <canvas id="chartAreas"></canvas>
+
+      <!-- TURNOS -->
+      <div class="card">
+        <div class="card-head"><span class="card-title" style="font-size:12px">Por Turno</span><span style="font-size:9px;color:var(--text3)">toca para filtrar</span></div>
+        <div style="padding:0 12px 12px">
+          <div id="barTurnos" style="display:flex;flex-direction:column;gap:7px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRAFICO TORTA: distribución por cargo -->
+    <div class="card">
+      <div class="card-head"><span class="card-title">🥧 Distribución por Cargo</span><span style="font-size:9px;color:var(--text3)" id="cargoSubtitle"></span></div>
+      <div style="padding:0 14px 14px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <!-- SVG pie chart -->
+        <div style="flex-shrink:0;position:relative;width:130px;height:130px">
+          <svg id="svgPie" width="130" height="130" style="transform:rotate(-90deg)"></svg>
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
-            <div id="areaCenterVal" style="font-family:var(--font-display);font-size:28px;font-weight:900;line-height:1;color:var(--text)">0</div>
-            <div id="areaCenterLabel" style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">total</div>
+            <div id="pieCenterN" style="font-family:var(--font-display);font-size:24px;font-weight:900;color:var(--text);line-height:1">0</div>
+            <div style="font-size:8px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">total</div>
           </div>
         </div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:8px" id="areaLegend"></div>
+        <!-- Legend -->
+        <div id="pieLegend" style="flex:1;min-width:120px;display:flex;flex-direction:column;gap:4px;padding-top:2px"></div>
       </div>
     </div>
 
-    <!-- GRAFICO TURNOS -->
+    <!-- GRAFICO BARRAS: Por cargo -->
+    <div class="card">
+      <div class="card-head"><span class="card-title">📊 Por Cargo / Puesto</span></div>
+      <div style="padding:0 14px 12px"><div id="barCargos" style="display:flex;flex-direction:column;gap:6px"></div></div>
+    </div>
+
+    <!-- GRAFICO BARRAS: Por supervisor -->
+    <div class="card">
+      <div class="card-head"><span class="card-title">👷 Por Supervisor</span><button onclick="setFilter('all')" style="background:none;border:none;font-size:9px;color:var(--ore);font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px">✕ LIMPIAR</button></div>
+      <div style="padding:0 14px 12px"><div id="barSups" style="display:flex;flex-direction:column;gap:6px"></div></div>
+    </div>
+
+    <!-- REGISTROS con scroll interno -->
     <div class="card">
       <div class="card-head">
-        <span class="card-title">Por Turno</span>
-        <span style="font-size:10px;color:var(--text3)">Toca para filtrar</span>
+        <span class="card-title" id="recordsTitle">Todos los registros</span>
+        <span style="font-size:10px;color:var(--text3)" id="allCount"></span>
       </div>
-      <div class="card-body" style="padding:12px 16px">
-        <canvas id="chartTurnos" style="max-height:100px"></canvas>
-      </div>
+      <div id="allRecordList" style="max-height:420px;overflow-y:auto;padding:0 4px"></div>
     </div>
 
-    <!-- GRAFICO SUPERVISORES -->
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">Por Supervisor</span>
-        <button onclick="setFilter('all',document.querySelector('[data-filter=all]'))" style="background:none;border:none;font-size:10px;color:var(--ore);font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px">LIMPIAR</button>
-      </div>
-      <div class="card-body" style="padding:8px 16px">
-        <canvas id="chartSups"></canvas>
-      </div>
-      <div class="card-body" style="padding:0 16px;padding-bottom:8px"><div id="supStatList"></div></div>
-    </div>
 
-    <!-- GRAFICO PIE GENERAL -->
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">🥧 Distribución General</span>
-        <span style="font-size:10px;color:var(--text3)">por cargo</span>
-      </div>
-      <div class="card-body" style="padding:12px 16px">
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-          <div style="position:relative;width:150px;height:150px;flex-shrink:0;margin:0 auto">
-            <canvas id="chartPie"></canvas>
-          </div>
-          <div id="pieLegend" style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- GRAFICO CARGOS / PUESTOS -->
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">📊 Por Cargo / Puesto</span>
-        <span style="font-size:10px;color:var(--text3)" id="cargoSubtitle"></span>
-      </div>
-      <div class="card-body" style="padding:8px 16px">
-        <canvas id="chartCargos"></canvas>
-      </div>
-    </div>
-
-    <!-- Registros filtrados -->
-    <div>
-      <div class="section-head">
-        <span class="section-title" id="recordsTitle">Todos los registros</span>
-        <span class="section-count" id="allCount">0</span>
-      </div>
-      <div class="card"><div class="card-body" style="padding:0 16px"><div id="allRecordList"></div></div></div>
-    </div>
 
     <!-- Herramientas -->
     <div>
@@ -1122,43 +1104,26 @@ async function renderHistorial() {
 }
 
 // ══════════════════════════════════════════════════════
-// ADMIN DASHBOARD — Interactive + Charts
+// ADMIN DASHBOARD
 // ══════════════════════════════════════════════════════
 let dashAllRegs   = [];
 let dashFilter    = 'all';
 let dashDateVal   = '';
 let realtimeTimer = null;
-let charts        = {};   // { areas, turnos, sups, cargos }
 
-const AREA_COLORS  = { Chancado:'#7C3AED', Molienda:'#0891B2', Pebles:'#D97706', '':'#A0AEC0' };
-const TURNO_COLORS = { 'Día':'#F59E0B', 'Noche':'#3B82F6' };
-
-function destroyChart(key) {
-  if (charts[key]) { try { charts[key].destroy(); } catch(e){} charts[key] = null; }
-}
-function ensureCanvasSize(id, h) {
-  const c = document.getElementById(id);
-  if (!c) return null;
-  if (h) c.style.height = h+'px';
-  // Force layout recalc
-  c.width  = c.offsetWidth  || c.parentElement?.offsetWidth  || 300;
-  c.height = h || c.offsetHeight || 200;
-  return c;
-}
+const PIE_COLORS = [
+  '#CC1010','#7C3AED','#0891B2','#D97706','#059669',
+  '#DB2777','#2563AB','#EA580C','#9333EA','#0E7490',
+  '#B45309','#16A34A','#4F46E5','#DC2626','#0284C7'
+];
 
 function resetDashDate() {
   document.getElementById('dashDatePicker').value = getTodayStr();
   dashDateVal = getTodayStr();
   renderDash();
 }
-function onDateChange() {
-  // Date changed → reload data for that date
-  renderDash();
-}
-function onFilterSelect(val) {
-  dashFilter = val;
-  applyDashFilters();
-}
+function onDateChange() { renderDash(); }
+function onFilterSelect(val) { setFilter(val); }
 function syncFilterSelect() {
   const sel = document.getElementById('dashFilterSelect');
   if (sel) sel.value = dashFilter;
@@ -1166,12 +1131,18 @@ function syncFilterSelect() {
 
 async function renderDash() {
   const picker = document.getElementById('dashDatePicker');
+  if (!picker) return;
   if (!picker.value) picker.value = getTodayStr();
   dashDateVal = picker.value || getTodayStr();
   document.getElementById('dashDate2').textContent = dashDateVal;
 
-  // Start realtime counter
-  startRealtimeCounter();
+  // Start realtime ticker
+  if (realtimeTimer) clearInterval(realtimeTimer);
+  realtimeTimer = setInterval(()=>{
+    if (document.getElementById('dashScreen')?.classList.contains('active') && isOnline) {
+      renderDash();
+    }
+  }, 60000);
 
   let all = [];
   if (isOnline) {
@@ -1188,54 +1159,26 @@ async function renderDash() {
   all.forEach(r=>{ r._area = areaMap[r.dniSupervisor]||''; });
   dashAllRegs = all;
 
-  // Update realtime counter
   updateRealtimeCounter(all.length);
   applyDashFilters();
 }
 
-function startRealtimeCounter() {
-  if (realtimeTimer) clearInterval(realtimeTimer);
-  realtimeTimer = setInterval(async () => {
-    if (document.getElementById('dashScreen')?.classList.contains('active') && isOnline) {
-      try {
-        const res  = await fetch(SB_REG, {cache:'no-store'});
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          const today = getTodayStr();
-          const todayRegs = data.map(r=>normReg(r)).filter(r=>r.fecha===today);
-          const sups = getSupervisores();
-          const areaMap = {};
-          sups.forEach(s=>{ areaMap[s.dni]=s.area||''; });
-          todayRegs.forEach(r=>{ r._area = areaMap[r.dniSupervisor]||''; });
-          dashAllRegs = todayRegs;
-          updateRealtimeCounter(todayRegs.length);
-          applyDashFilters();
-        }
-      } catch(e) {}
-    }
-  }, 60000); // refresh every 60s
-}
-
 function updateRealtimeCounter(n) {
-  const el = document.getElementById('realtimeCount');
+  const el  = document.getElementById('realtimeCount');
   const tel = document.getElementById('realtimeTime');
   if (!el) return;
-  // Animate counter
-  const current = parseInt(el.textContent) || 0;
-  if (current === n) { if (tel) tel.textContent = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}); return; }
-  const step = n > current ? 1 : -1;
-  let v = current;
-  const timer = setInterval(() => {
-    v += step;
-    el.textContent = v;
-    if (v === n) clearInterval(timer);
-  }, Math.max(10, Math.min(50, 500/Math.abs(n-current))));
+  const prev = parseInt(el.textContent)||0;
+  if (prev !== n) {
+    el.style.transition='transform 200ms';
+    el.style.transform='scale(1.15)';
+    setTimeout(()=>{ el.textContent=n; el.style.transform='scale(1)'; },150);
+  }
   if (tel) tel.textContent = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
 }
 
-function setFilter(val, chipEl) {
-  if (dashFilter === val && val !== 'all') dashFilter='all';
-  else dashFilter = val;
+function setFilter(val) {
+  if (dashFilter===val && val!=='all') dashFilter='all';
+  else dashFilter=val;
   syncFilterSelect();
   applyDashFilters();
 }
@@ -1246,349 +1189,250 @@ function applyDashFilters() {
   sups.forEach(s=>{ areaMap[s.dni]=s.area||''; });
 
   let filtered = dashAllRegs;
-  if (dashFilter !== 'all') {
-    if (['Chancado','Molienda','Pebles'].includes(dashFilter)) {
-      filtered = dashAllRegs.filter(r=>(r._area||'').toLowerCase().includes(dashFilter.toLowerCase()));
-    } else if (dashFilter==='Día'||dashFilter==='Noche') {
-      filtered = dashAllRegs.filter(r=>r.turno===dashFilter);
-    }
+  if (dashFilter==='Chancado'||dashFilter==='Molienda'||dashFilter==='Pebles') {
+    filtered = dashAllRegs.filter(r=>(r._area||'')=== dashFilter);
+  } else if (dashFilter==='Día'||dashFilter==='Noche') {
+    filtered = dashAllRegs.filter(r=>r.turno===dashFilter);
   }
 
   const lbl = document.getElementById('activeFiltersLabel');
-  if (dashFilter!=='all') {
-    lbl.style.display='block';
-    lbl.textContent=`Mostrando: ${dashFilter} (${filtered.length} de ${dashAllRegs.length})`;
-  } else { lbl.style.display='none'; }
+  if (lbl) {
+    if (dashFilter!=='all') { lbl.style.display='block'; lbl.textContent=`Filtro: ${dashFilter} (${filtered.length} de ${dashAllRegs.length})`; }
+    else lbl.style.display='none';
+  }
 
   // KPIs
-  document.getElementById('dashTotal').textContent = filtered.length;
-  document.getElementById('dashDia').textContent   = filtered.filter(r=>r.turno==='Día').length;
-  document.getElementById('dashNoche').textContent = filtered.filter(r=>r.turno==='Noche').length;
-  document.getElementById('dashSups').textContent  = [...new Set(filtered.map(r=>r.dniSupervisor))].length;
+  document.getElementById('dashTotal').textContent  = filtered.length;
+  document.getElementById('dashDia').textContent    = filtered.filter(r=>r.turno==='Día').length;
+  document.getElementById('dashNoche').textContent  = filtered.filter(r=>r.turno==='Noche').length;
+  document.getElementById('dashSups').textContent   = [...new Set(filtered.map(r=>r.dniSupervisor))].length;
 
-  // Counts
-  let chan=0,mol=0,peb=0,sinArea=0;
+  // Count areas from ALL regs (not filtered)
+  let chan=0,mol=0,peb=0;
   dashAllRegs.forEach(r=>{
-    const a=(r._area||'').toLowerCase();
-    if(a.includes('chan')) chan++;
-    else if(a.includes('mol')) mol++;
-    else if(a.includes('peb')) peb++;
-    else sinArea++;
+    const a=r._area||'';
+    if(a==='Chancado') chan++;
+    else if(a==='Molienda') mol++;
+    else if(a==='Pebles') peb++;
   });
   const dia   = dashAllRegs.filter(r=>r.turno==='Día').length;
   const noche = dashAllRegs.filter(r=>r.turno==='Noche').length;
+  const total = dashAllRegs.length;
 
-  renderRecordsList(filtered,sups,areaMap);
-  syncFilterSelect();
-  // Use requestAnimationFrame to ensure canvas has dimensions after layout
-  requestAnimationFrame(()=>{
-    renderChartAreas(chan,mol,peb,sinArea);
-    renderChartTurnos(dia,noche);
-    renderChartSups(filtered,sups,areaMap);
-    renderChartCargos(filtered);
-    renderChartPie(filtered);
-  });
+  renderBarAreas(chan,mol,peb,total);
+  renderBarTurnos(dia,noche,total);
+  renderPie(filtered);
+  renderBarCargos(filtered);
+  renderBarSups(filtered,sups);
+  renderRecordsList(filtered);
 }
 
-// ── CHART: AREAS (Doughnut) ──
-function renderChartAreas(chan,mol,peb,sinArea) {
-  destroyChart('areas');
-  const ctx = ensureCanvasSize('chartAreas', 140);
-  if (!ctx) return;
-  const total = chan+mol+peb+sinArea;
-  document.getElementById('areaCenterVal').textContent = dashAllRegs.length;
-  document.getElementById('areaCenterLabel').textContent = 'total';
-
-  const data = [chan,mol,peb];
-  const labels = ['Chancado','Molienda','Pebles'];
-  const colors = ['#7C3AED','#0891B2','#D97706'];
-
-  charts.areas = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels,
-      datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff', hoverOffset:6 }]
-    },
-    options: {
-      cutout:'65%', responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{display:false}, tooltip:{ callbacks:{
-        label: ctx => ` ${ctx.label}: ${ctx.raw} (${total?Math.round(ctx.raw/total*100):0}%)`
-      }}},
-      onClick: (evt,els) => {
-        if (!els.length) return;
-        const lbl = labels[els[0].index];
-        setFilter(lbl, document.querySelector(`[data-filter=${lbl}]`));
-      }
-    }
-  });
-
-  // Legend
-  document.getElementById('areaLegend').innerHTML = [
-    {label:'Chancado', val:chan, color:'#7C3AED', filter:'Chancado'},
-    {label:'Molienda', val:mol, color:'#0891B2', filter:'Molienda'},
-    {label:'Pebles',   val:peb, color:'#D97706', filter:'Pebles'},
-  ].map(a=>`
-    <div onclick="setFilter('${a.filter}',document.querySelector('[data-filter=${a.filter}]'))"
-         style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 8px;border-radius:6px;transition:background 150ms"
-         onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-      <div style="width:10px;height:10px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
-      <div style="flex:1;font-size:12px;color:var(--text2)">${a.label}</div>
-      <div style="font-family:var(--font-display);font-size:18px;font-weight:900;color:var(--text)">${a.val}</div>
-    </div>`).join('');
-}
-
-// ── CHART: TURNOS (Horizontal bar) ──
-function renderChartTurnos(dia,noche) {
-  destroyChart('turnos');
-  const ctx = ensureCanvasSize('chartTurnos', 90);
-  if (!ctx) return;
-  charts.turnos = new Chart(ctx, {
-    type:'bar',
-    data:{
-      labels:['☀ Turno Día','🌙 Turno Noche'],
-      datasets:[{
-        data:[dia,noche],
-        backgroundColor:['rgba(245,158,11,0.85)','rgba(59,130,246,0.85)'],
-        borderColor:['#F59E0B','#3B82F6'],
-        borderWidth:2, borderRadius:6
-      }]
-    },
-    options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{callbacks:{
-        label:c=>` ${c.raw} trabajadores`
-      }}},
-      scales:{
-        x:{ beginAtZero:true, ticks:{stepSize:1,font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
-        y:{ ticks:{font:{size:11,weight:'bold'}} }
-      },
-      onClick:(evt,els)=>{
-        if(!els.length) return;
-        const turno = els[0].index===0?'Día':'Noche';
-        setFilter(turno, document.querySelector(`[data-filter="${turno}"]`));
-      }
-    }
-  });
-  ctx.style.height='90px';
-}
-
-// ── CHART: SUPERVISORES (Horizontal bar) ──
-function renderChartSups(filtered,sups,areaMap) {
-  destroyChart('sups');
-  const ctx = ensureCanvasSize('chartSups', 0);
-  if (!ctx) return;
-
-  const bySuper = {};
-  filtered.forEach(r=>{ bySuper[r.dniSupervisor]=(bySuper[r.dniSupervisor]||0)+1; });
-
-  const supsFilt = sups.filter(s=>bySuper[s.dni]).sort((a,b)=>(bySuper[b.dni]||0)-(bySuper[a.dni]||0)).slice(0,8);
-  window._supsFilt = supsFilt;
-
-  if (!supsFilt.length) {
-    document.getElementById('supStatList').innerHTML='<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">Sin registros</div>';
-    return;
-  }
-
-  const labels = supsFilt.map(s=>s.nombre.split(' ')[0]+' '+( s.nombre.split(' ')[2]||s.nombre.split(' ')[1]||''));
-  const values = supsFilt.map(s=>bySuper[s.dni]||0);
-  const bgColors = supsFilt.map(s=>{
-    const a=s.area||'';
-    if(a==='Chancado') return 'rgba(124,58,237,0.75)';
-    if(a==='Molienda') return 'rgba(8,145,178,0.75)';
-    if(a==='Pebles')   return 'rgba(217,119,6,0.75)';
-    return 'rgba(26,78,138,0.75)';
-  });
-
-  charts.sups = new Chart(ctx, {
-    type:'bar',
-    data:{
-      labels,
-      datasets:[{ data:values, backgroundColor:bgColors, borderRadius:5, borderWidth:0 }]
-    },
-    options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{
-          title: items => supsFilt[items[0].dataIndex].nombre,
-          label: c=>`${c.raw} trabajadores registrados`
-        }}
-      },
-      scales:{
-        x:{ beginAtZero:true, ticks:{stepSize:1,font:{size:10}}, grid:{color:'rgba(0,0,0,0.04)'} },
-        y:{ ticks:{font:{size:10}} }
-      },
-      onClick:(evt,els)=>{ if(els.length) filterBySupIdx(els[0].dataIndex); }
-    }
-  });
-  ctx.style.height = Math.max(80, supsFilt.length * 36) + 'px';
-
-  // Mini list below chart
-  document.getElementById('supStatList').innerHTML = supsFilt.map((s,i)=>{
-    const ini = s.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const av  = renderAvatarEl(s.dni, ini, 36, 'var(--blue)');
-    return `<div class="sup-row" style="cursor:pointer" onclick="filterBySupIdx(${i})">
-      <div class="sup-av">${av}</div>
-      <div class="sup-info">
-        <div class="sup-name">${s.nombre}</div>
-        <div class="sup-meta">${getAreaBadge(s.area)} ${getTurnoBadge(s.turno)}</div>
+// ── CSS BAR: AREAS ──
+function renderBarAreas(chan,mol,peb,total) {
+  const el = document.getElementById('barAreas');
+  if (!el) return;
+  const items = [
+    {label:'⛏ Chancado', val:chan, color:'#7C3AED', filter:'Chancado'},
+    {label:'⚙ Molienda', val:mol, color:'#0891B2', filter:'Molienda'},
+    {label:'🏗 Pebles',  val:peb, color:'#D97706', filter:'Pebles'},
+  ];
+  el.innerHTML = items.map(it=>{
+    const pct = total ? Math.round(it.val/total*100) : 0;
+    const active = dashFilter===it.filter ? 'box-shadow:0 0 0 2px '+it.color+';' : '';
+    return `<div onclick="setFilter('${it.filter}')" style="cursor:pointer;border-radius:8px;padding:7px 8px;background:var(--bg2);${active}transition:all 150ms"
+              onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700;font-family:var(--font-display);color:var(--text)">${it.label}</span>
+        <span style="font-family:var(--font-display);font-size:14px;font-weight:900;color:${it.color}">${it.val}</span>
       </div>
-      <div style="text-align:right"><div class="sup-count">${bySuper[s.dni]||0}</div><div style="font-size:9px;color:var(--text3)">reg.</div></div>
+      <div style="height:5px;background:var(--border);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${it.color};border-radius:99px;transition:width 400ms"></div>
+      </div>
+      <div style="font-size:9px;color:var(--text3);margin-top:2px">${pct}%</div>
     </div>`;
   }).join('');
 }
 
-// ── CHART: CARGOS (Horizontal bar) ──
-function renderChartCargos(filtered) {
-  destroyChart('cargos');
-  const ctx = ensureCanvasSize('chartCargos', 0);
-  if (!ctx) return;
+// ── CSS BAR: TURNOS ──
+function renderBarTurnos(dia,noche,total) {
+  const el = document.getElementById('barTurnos');
+  if (!el) return;
+  const items = [
+    {label:'☀ Turno Día',   val:dia,   color:'#F59E0B', filter:'Día'},
+    {label:'🌙 Turno Noche', val:noche, color:'#3B82F6', filter:'Noche'},
+  ];
+  el.innerHTML = items.map(it=>{
+    const pct = total ? Math.round(it.val/total*100) : 0;
+    const active = dashFilter===it.filter ? 'box-shadow:0 0 0 2px '+it.color+';' : '';
+    return `<div onclick="setFilter('${it.filter}')" style="cursor:pointer;border-radius:8px;padding:7px 8px;background:var(--bg2);${active}transition:all 150ms"
+              onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700;font-family:var(--font-display);color:var(--text)">${it.label}</span>
+        <span style="font-family:var(--font-display);font-size:14px;font-weight:900;color:${it.color}">${it.val}</span>
+      </div>
+      <div style="height:5px;background:var(--border);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${it.color};border-radius:99px;transition:width 400ms"></div>
+      </div>
+      <div style="font-size:9px;color:var(--text3);margin-top:2px">${pct}%</div>
+    </div>`;
+  }).join('');
+}
 
+// ── SVG PIE ──
+function renderPie(filtered) {
+  const svg = document.getElementById('svgPie');
+  const leg = document.getElementById('pieLegend');
+  const cen = document.getElementById('pieCenterN');
+  const sub = document.getElementById('cargoSubtitle');
+  if (!svg) return;
+
+  const cargos = {};
+  filtered.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
+  const entries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]);
+  const total   = filtered.length;
+
+  if (cen) cen.textContent = total;
+  if (sub) sub.textContent = entries.length ? entries.length+' cargos' : '';
+
+  if (!entries.length) {
+    svg.innerHTML='';
+    if (leg) leg.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0">Sin datos de cargo</div>';
+    return;
+  }
+
+  // Draw SVG doughnut
+  const R=55, r=30, cx=65, cy=65;
+  let startAngle = 0;
+  let paths = '';
+  const cargoTotal = entries.reduce((a,[,n])=>a+n,0);
+
+  entries.forEach(([c,n],i)=>{
+    const frac   = n/cargoTotal;
+    const angle  = frac*2*Math.PI;
+    const endAngle = startAngle+angle;
+    const x1 = cx+R*Math.cos(startAngle), y1=cy+R*Math.sin(startAngle);
+    const x2 = cx+R*Math.cos(endAngle),   y2=cy+R*Math.sin(endAngle);
+    const ix1= cx+r*Math.cos(startAngle), iy1=cy+r*Math.sin(startAngle);
+    const ix2= cx+r*Math.cos(endAngle),   iy2=cy+r*Math.sin(endAngle);
+    const large= angle>Math.PI?1:0;
+    const color= PIE_COLORS[i%PIE_COLORS.length];
+    const safeC= c.replace(/'/g,'&#39;');
+    paths+=`<path d="M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${large},0 ${ix1},${iy1} Z"
+      fill="${color}" stroke="#fff" stroke-width="1.5" style="cursor:pointer;transition:opacity 150ms"
+      onclick="filterByCargo('${safeC}')" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
+      <title>${c}: ${n} (${Math.round(frac*100)}%)</title></path>`;
+    startAngle=endAngle;
+  });
+  svg.innerHTML=paths;
+
+  // Legend
+  if (leg) leg.innerHTML = entries.slice(0,10).map(([c,n],i)=>{
+    const pct=Math.round(n/cargoTotal*100);
+    const safeC=c.replace(/'/g,'&#39;');
+    return `<div onclick="filterByCargo('${safeC}')" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 4px;border-radius:5px;transition:background 120ms"
+        onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+      <div style="width:9px;height:9px;border-radius:50%;background:${PIE_COLORS[i%PIE_COLORS.length]};flex-shrink:0"></div>
+      <div style="flex:1;font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">${c}</div>
+      <b style="font-family:var(--font-display);font-size:13px;color:var(--text);flex-shrink:0">${n}</b>
+      <span style="font-size:9px;color:var(--text3);width:26px;text-align:right">${pct}%</span>
+    </div>`;
+  }).join('')+(entries.length>10?`<div style="font-size:9px;color:var(--text3);padding:2px 4px">+${entries.length-10} más</div>`:'');
+}
+
+// ── CSS BAR: CARGOS ──
+function renderBarCargos(filtered) {
+  const el = document.getElementById('barCargos');
+  if (!el) return;
   const cargos = {};
   filtered.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
   const entries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]).slice(0,10);
   window._cargoEntries = entries;
+  const maxV = entries.length ? entries[0][1] : 1;
+  const total = filtered.length || 1;
 
-  const subtitle = document.getElementById('cargoSubtitle');
-  if (subtitle) subtitle.textContent = entries.length ? entries.length+' puestos' : '';
+  if (!entries.length) { el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0">Sin datos</div>'; return; }
 
-  if (!entries.length) { ctx.style.height='40px'; return; }
-
-  const labels = entries.map(([c])=>c);
-  const values = entries.map(([,n])=>n);
-  const maxV   = Math.max(...values);
-
-  // Gradient colors based on rank
-  const palette = ['#CC1010','#D63E3E','#E06060','#E88080','#F0A0A0',
-                   '#1A4E8A','#2563AB','#3B7DD8','#6FA3E8','#9DC0F0'];
-
-  charts.cargos = new Chart(ctx, {
-    type:'bar',
-    data:{
-      labels,
-      datasets:[{
-        data:values,
-        backgroundColor: entries.map((_,i)=>palette[i]||'#A0AEC0'),
-        borderRadius:5, borderWidth:0
-      }]
-    },
-    options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{ label:c=>`${c.raw} personas · ${Math.round(c.raw/filtered.length*100)}% del total` }}
-      },
-      scales:{
-        x:{ beginAtZero:true, ticks:{stepSize:1,font:{size:10}}, grid:{color:'rgba(0,0,0,0.04)'} },
-        y:{ ticks:{font:{size:10}} }
-      },
-      onClick:(evt,els)=>{ if(els.length) filterByCargo(window._cargoEntries[els[0].dataIndex][0]); }
-    }
-  });
-  ctx.style.height = Math.max(80, entries.length * 32) + 'px';
+  el.innerHTML = entries.map(([c,n],i)=>{
+    const pct = Math.round(n/maxV*100);
+    const pctTotal = Math.round(n/total*100);
+    const color = PIE_COLORS[i%PIE_COLORS.length];
+    const safeC = c.replace(/'/g,'&#39;');
+    return `<div onclick="filterByCargo('${safeC}')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;transition:background 120ms"
+        onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+      <div style="font-size:10px;color:var(--text2);width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">${c}</div>
+      <div style="flex:1;height:7px;background:var(--border);border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:99px;transition:width 400ms"></div>
+      </div>
+      <b style="font-family:var(--font-display);font-size:13px;color:var(--text);flex-shrink:0;width:20px;text-align:right">${n}</b>
+      <span style="font-size:9px;color:var(--text3);width:26px;text-align:right">${pctTotal}%</span>
+    </div>`;
+  }).join('');
 }
 
-// ── RECORDS LIST ──
-function renderRecordsList(filtered,sups,areaMap) {
-  const label = dashFilter==='all'?'Todos los registros':`Filtrado: ${dashFilter}`;
+// ── CSS BAR: SUPERVISORES ──
+function renderBarSups(filtered, sups) {
+  const el = document.getElementById('barSups');
+  if (!el) return;
+  const byDni = {};
+  filtered.forEach(r=>{ byDni[r.dniSupervisor]=(byDni[r.dniSupervisor]||0)+1; });
+  const supsFilt = sups.filter(s=>byDni[s.dni]).sort((a,b)=>(byDni[b.dni]||0)-(byDni[a.dni]||0));
+  window._supsFilt = supsFilt;
+  const maxV = supsFilt.length ? byDni[supsFilt[0].dni] : 1;
+
+  if (!supsFilt.length) { el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0">Sin datos</div>'; return; }
+
+  el.innerHTML = supsFilt.map((s,i)=>{
+    const n   = byDni[s.dni]||0;
+    const pct = Math.round(n/maxV*100);
+    const aColor = s.area==='Chancado'?'#7C3AED':s.area==='Molienda'?'#0891B2':s.area==='Pebles'?'#D97706':'#1A4E8A';
+    const ini = s.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const av  = renderAvatarEl(s.dni, ini, 32, aColor);
+    return `<div onclick="filterBySupIdx(${i})" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:8px;transition:background 120ms"
+        onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+      <div style="flex-shrink:0">${av}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.nombre}</div>
+        <div style="height:5px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:3px">
+          <div style="height:100%;width:${pct}%;background:${aColor};border-radius:99px;transition:width 400ms"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text3);margin-top:1px">${getAreaBadge(s.area)} ${getTurnoBadge(s.turno)}</div>
+      </div>
+      <b style="font-family:var(--font-display);font-size:16px;color:${aColor};flex-shrink:0">${n}</b>
+    </div>`;
+  }).join('');
+}
+
+// ── RECORDS LIST (max 8 visible, scroll for rest) ──
+function renderRecordsList(filtered) {
+  const label = dashFilter==='all'?'Todos los registros':`Filtro: ${dashFilter}`;
   document.getElementById('recordsTitle').textContent = label;
   document.getElementById('allCount').textContent = filtered.length+' registros';
-  document.getElementById('allRecordList').innerHTML = filtered.length
+  const el = document.getElementById('allRecordList');
+  el.innerHTML = filtered.length
     ? [...filtered].reverse().map(r=>recordHTML(r)).join('')
-    : '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin registros</div>';
-}
-
-// ── CHART: PIE GENERAL por cargo ──
-function renderChartPie(filtered) {
-  destroyChart('pie');
-  const ctx = ensureCanvasSize('chartPie', 150);
-  if (!ctx) return;
-
-  const cargos = {};
-  filtered.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
-  // Also count those with no cargo
-  const sinCargo = filtered.filter(r=>!r.cargo).length;
-  if (sinCargo > 0) cargos['Sin cargo'] = sinCargo;
-
-  const entries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]);
-  const total   = filtered.length;
-
-  const PALETTE = [
-    '#CC1010','#7C3AED','#0891B2','#D97706','#059669',
-    '#DB2777','#2563AB','#EA580C','#16A34A','#9333EA',
-    '#0E7490','#B45309','#DC2626','#4F46E5','#0284C7'
-  ];
-
-  if (!entries.length) { ctx.style.height='40px'; return; }
-
-  const labels = entries.map(([c])=>c);
-  const values = entries.map(([,n])=>n);
-  const colors = entries.map((_,i)=>PALETTE[i%PALETTE.length]);
-
-  charts.pie = new Chart(ctx, {
-    type:'doughnut',
-    data:{
-      labels,
-      datasets:[{ data:values, backgroundColor:colors, borderWidth:2, borderColor:'#fff', hoverOffset:8 }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:true, cutout:'50%',
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{
-          label: c=>`${c.label}: ${c.raw} (${total?Math.round(c.raw/total*100):0}%)`
-        }}
-      },
-      onClick:(evt,els)=>{
-        if(!els.length) return;
-        const cargo = labels[els[0].index];
-        if (cargo !== 'Sin cargo') filterByCargo(cargo);
-      }
-    }
-  });
-
-  // Legend
-  const leg = document.getElementById('pieLegend');
-  if (!leg) return;
-  leg.innerHTML = entries.slice(0,10).map(([c,n],i)=>`
-    <div onclick="${c!=='Sin cargo'?`filterByCargo('${c.replace(/'/g,'&#39;')}')`:''}"
-         style="display:flex;align-items:center;gap:6px;cursor:${c!=='Sin cargo'?'pointer':'default'};padding:2px 4px;border-radius:4px"
-         onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-      <div style="width:8px;height:8px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
-      <div style="flex:1;font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c}</div>
-      <div style="font-family:var(--font-display);font-size:13px;font-weight:800;color:var(--text);flex-shrink:0">${n}</div>
-      <div style="font-size:9px;color:var(--text3);flex-shrink:0;width:28px;text-align:right">${Math.round(n/total*100)}%</div>
-    </div>`).join('');
-  if (entries.length > 10) {
-    leg.innerHTML += `<div style="font-size:10px;color:var(--text3);padding:2px 4px">+${entries.length-10} más...</div>`;
-  }
+    : '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin registros para esta fecha</div>';
 }
 
 function filterByCargo(cargo) {
-  if (dashFilter===cargo) { setFilter('all',document.querySelector('[data-filter=all]')); return; }
+  if (dashFilter===cargo) { setFilter('all'); return; }
   dashFilter = cargo;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  syncFilterSelect();
   applyDashFilters();
-  const lbl=document.getElementById('activeFiltersLabel');
-  lbl.style.display='block';
-  lbl.textContent=`Filtrado por cargo: ${cargo}`;
   showToast('Filtrado: '+cargo);
 }
-
 function filterBySupIdx(i) {
   const s = window._supsFilt && window._supsFilt[i];
   if (s) filterBySup(s.dni, s.nombre);
 }
 function filterBySup(dni, nombre) {
   const regs = dashAllRegs.filter(r=>r.dniSupervisor===dni);
-  document.getElementById('recordsTitle').textContent='Registros de '+nombre;
+  document.getElementById('recordsTitle').textContent='Supervisor: '+nombre;
   document.getElementById('allCount').textContent=regs.length+' registros';
   document.getElementById('allRecordList').innerHTML = regs.length
     ? [...regs].reverse().map(r=>recordHTML(r)).join('')
     : '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin registros</div>';
   const lbl=document.getElementById('activeFiltersLabel');
-  lbl.style.display='block';
-  lbl.textContent=`Supervisor: ${nombre} · ${regs.length} registros`;
+  if(lbl){lbl.style.display='block';lbl.textContent=`Supervisor: ${nombre} · ${regs.length} registros`;}
 }
 
 // ══════════════════════════════════════════════════════
