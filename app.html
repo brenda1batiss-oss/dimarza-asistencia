@@ -40,8 +40,8 @@
 html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font-body);color:var(--text);-webkit-font-smoothing:antialiased}
 
 /* ── SCREENS ── */
-.screen{position:fixed;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateY(12px);transition:opacity 250ms ease,transform 250ms ease;overflow:hidden}
-.screen.active{opacity:1;pointer-events:all;transform:translateY(0)}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateY(12px);transition:opacity 250ms ease,transform 250ms ease;overflow:hidden;visibility:hidden}
+.screen.active{opacity:1;pointer-events:all;transform:translateY(0);overflow-y:auto;visibility:visible}
 
 /* ── TOPBAR ── */
 .topbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
@@ -1044,7 +1044,8 @@ function showHome() {
 }
 function showDash() {
   showScreen('dashScreen');
-  renderDash();
+  // Slight delay so CSS transition completes and canvas gets real dimensions
+  setTimeout(()=>renderDash(), 50);
 }
 function doLogout() {
   currentUser=null; stopScanner();
@@ -1134,6 +1135,15 @@ const TURNO_COLORS = { 'Día':'#F59E0B', 'Noche':'#3B82F6' };
 
 function destroyChart(key) {
   if (charts[key]) { try { charts[key].destroy(); } catch(e){} charts[key] = null; }
+}
+function ensureCanvasSize(id, h) {
+  const c = document.getElementById(id);
+  if (!c) return null;
+  if (h) c.style.height = h+'px';
+  // Force layout recalc
+  c.width  = c.offsetWidth  || c.parentElement?.offsetWidth  || 300;
+  c.height = h || c.offsetHeight || 200;
+  return c;
 }
 
 function resetDashDate() {
@@ -1268,19 +1278,22 @@ function applyDashFilters() {
   const dia   = dashAllRegs.filter(r=>r.turno==='Día').length;
   const noche = dashAllRegs.filter(r=>r.turno==='Noche').length;
 
-  renderChartAreas(chan,mol,peb,sinArea);
-  renderChartTurnos(dia,noche);
-  renderChartSups(filtered,sups,areaMap);
-  renderChartCargos(filtered);
-  renderChartPie(filtered);
-  syncFilterSelect();
   renderRecordsList(filtered,sups,areaMap);
+  syncFilterSelect();
+  // Use requestAnimationFrame to ensure canvas has dimensions after layout
+  requestAnimationFrame(()=>{
+    renderChartAreas(chan,mol,peb,sinArea);
+    renderChartTurnos(dia,noche);
+    renderChartSups(filtered,sups,areaMap);
+    renderChartCargos(filtered);
+    renderChartPie(filtered);
+  });
 }
 
 // ── CHART: AREAS (Doughnut) ──
 function renderChartAreas(chan,mol,peb,sinArea) {
   destroyChart('areas');
-  const ctx = document.getElementById('chartAreas');
+  const ctx = ensureCanvasSize('chartAreas', 140);
   if (!ctx) return;
   const total = chan+mol+peb+sinArea;
   document.getElementById('areaCenterVal').textContent = dashAllRegs.length;
@@ -1327,7 +1340,7 @@ function renderChartAreas(chan,mol,peb,sinArea) {
 // ── CHART: TURNOS (Horizontal bar) ──
 function renderChartTurnos(dia,noche) {
   destroyChart('turnos');
-  const ctx = document.getElementById('chartTurnos');
+  const ctx = ensureCanvasSize('chartTurnos', 90);
   if (!ctx) return;
   charts.turnos = new Chart(ctx, {
     type:'bar',
@@ -1362,7 +1375,7 @@ function renderChartTurnos(dia,noche) {
 // ── CHART: SUPERVISORES (Horizontal bar) ──
 function renderChartSups(filtered,sups,areaMap) {
   destroyChart('sups');
-  const ctx = document.getElementById('chartSups');
+  const ctx = ensureCanvasSize('chartSups', 0);
   if (!ctx) return;
 
   const bySuper = {};
@@ -1428,7 +1441,7 @@ function renderChartSups(filtered,sups,areaMap) {
 // ── CHART: CARGOS (Horizontal bar) ──
 function renderChartCargos(filtered) {
   destroyChart('cargos');
-  const ctx = document.getElementById('chartCargos');
+  const ctx = ensureCanvasSize('chartCargos', 0);
   if (!ctx) return;
 
   const cargos = {};
@@ -1488,7 +1501,7 @@ function renderRecordsList(filtered,sups,areaMap) {
 // ── CHART: PIE GENERAL por cargo ──
 function renderChartPie(filtered) {
   destroyChart('pie');
-  const ctx = document.getElementById('chartPie');
+  const ctx = ensureCanvasSize('chartPie', 150);
   if (!ctx) return;
 
   const cargos = {};
