@@ -481,8 +481,8 @@ canvas{max-height:200px}
     </div>
 
     <!-- Torta: distribución por cargo -->
-    <div class="card">
-      <div class="card-head"><span class="card-title">🥧 Distribución por Cargo</span><span style="font-size:9px;color:var(--text3)" id="cargoSubtitle"></span></div>
+    <div class="card" style="min-height:80px">
+      <div class="card-head"><span class="card-title">🥧 Distribución por Cargo</span><span style="font-size:9px;color:var(--text3)" id="cargoSubtitle">cargando...</span></div>
       <div style="padding:0 14px 14px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
         <div style="flex-shrink:0;position:relative;width:130px;height:130px">
           <svg id="svgPie" width="130" height="130" style="transform:rotate(-90deg)"></svg>
@@ -496,13 +496,13 @@ canvas{max-height:200px}
     </div>
 
     <!-- Barras por cargo -->
-    <div class="card">
+    <div class="card" style="min-height:80px">
       <div class="card-head"><span class="card-title">📊 Por Cargo / Puesto</span></div>
-      <div style="padding:0 14px 12px"><div id="barCargos" style="display:flex;flex-direction:column;gap:6px"></div></div>
+      <div style="padding:0 14px 12px"><div id="barCargos" style="display:flex;flex-direction:column;gap:6px"><div style="font-size:11px;color:var(--text3);padding:12px 0;text-align:center">cargando...</div></div></div>
     </div>
 
     <!-- Barras por supervisor -->
-    <div class="card">
+    <div class="card" style="min-height:80px">
       <div class="card-head"><span class="card-title">👷 Por Supervisor</span><button onclick="setFilter('all')" style="background:none;border:none;font-size:9px;color:var(--ore);font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px">✕ LIMPIAR</button></div>
       <div style="padding:0 14px 12px"><div id="barSups" style="display:flex;flex-direction:column;gap:6px"></div></div>
     </div>
@@ -574,7 +574,7 @@ canvas{max-height:200px}
     </div>
 
     <!-- 5. REGISTROS con scroll -->
-    <div class="card">
+    <div class="card" style="min-height:120px">
       <div class="card-head">
         <span class="card-title" id="recordsTitle">Todos los registros</span>
         <span style="font-size:10px;color:var(--text3)" id="allCount"></span>
@@ -1272,12 +1272,22 @@ function applyDashFilters() {
   const noche = dashAllRegs.filter(r=>r.turno==='Noche').length;
   const total = dashAllRegs.length;
 
+  console.log('[DMZ] applyDashFilters: dashAllRegs='+dashAllRegs.length+' filtered='+filtered.length);
+  console.log('[DMZ] sample record:', JSON.stringify(dashAllRegs[0]||{}));
+  const elPie=document.getElementById('svgPie');
+  const elCargo=document.getElementById('barCargos');
+  const elSups=document.getElementById('barSups');
+  const elList=document.getElementById('allRecordList');
+  console.log('[DMZ] elements: pie='+(!!elPie)+' cargo='+(!!elCargo)+' sups='+(!!elSups)+' list='+(!!elList));
   renderBarAreas(chan,mol,peb,total);
   renderBarTurnos(dia,noche,total);
   renderPie(filtered.length ? filtered : dashAllRegs);
   renderBarCargos(filtered.length ? filtered : dashAllRegs);
   renderBarSups(dashAllRegs, sups);
   renderRecordsList(filtered);
+  console.log('[DMZ] after render: pie.innerHTML length='+((document.getElementById('svgPie')||{}).innerHTML||'').length);
+  console.log('[DMZ] cargo.innerHTML='+((document.getElementById('barCargos')||{}).innerHTML||'').substring(0,100));
+  console.log('[DMZ] list.innerHTML='+((document.getElementById('allRecordList')||{}).innerHTML||'').substring(0,100));
 }
 
 // ── CSS BAR: AREAS ──
