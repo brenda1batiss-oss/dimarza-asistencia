@@ -423,7 +423,13 @@ canvas{max-height:200px}
           <button class="pin-toggle" onclick="togglePinVis('pinConfirm',this)">👁</button>
         </div>
       </div>
-      <div id="pinSuccess" style="background:var(--signal-light);border:1px solid var(--signal);border-radius:var(--r);padding:8px 12px;font-size:12px<!-- ══════════════════════════════════════════════
+      <div id="pinSuccess" style="background:var(--signal-light);border:1px solid var(--signal);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--signal);display:none;margin-bottom:10px">✓ PIN cambiado correctamente</div>
+      <button class="btn-primary" onclick="cambiarPin()">GUARDAR NUEVO PIN</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
   ADMIN: DASHBOARD
 ══════════════════════════════════════════════ -->
 <div id="dashScreen" class="screen">
