@@ -37,10 +37,10 @@
   --font-body:'Barlow',sans-serif;
   --transition:200ms cubic-bezier(0.4,0,0.2,1);
 }
-html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font-body);color:var(--text);-webkit-font-smoothing:antialiased}
+html,body{height:100%;width:100%;overflow:hidden;margin:0;padding:0;background:var(--bg);font-family:var(--font-body);color:var(--text);-webkit-font-smoothing:antialiased}
 
 /* ── SCREENS ── */
-.screen{position:fixed;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateY(12px);transition:opacity 250ms ease,transform 250ms ease;overflow:hidden;visibility:hidden;}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateY(12px);transition:opacity 250ms ease,transform 250ms ease;overflow:hidden;visibility:hidden;}
 .screen.active{opacity:1;pointer-events:all;transform:translateY(0);visibility:visible;overflow:hidden;}
 
 /* ── TOPBAR ── */
@@ -279,7 +279,7 @@ canvas{max-height:200px}
 .unit-banner-info{font-size:11px;opacity:0.7;margin-top:4px}
 </style>
 </head>
-<body>
+<body style="position:relative">
 
 <!-- ══════════════════════════════════════════════
   SUPERVISOR: HOME
@@ -445,7 +445,7 @@ canvas{max-height:200px}
   <div class="offline-banner" id="offlineBannerDash">SIN CONEXIÓN — MODO OFFLINE</div>
   <div class="content">
 
-    <!-- DATE + FILTER ROW -->
+    <!-- 1. FECHA + FILTRO -->
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:6px;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:7px 12px;flex:1;min-width:140px">
         <span style="font-size:13px">📅</span>
@@ -466,7 +466,48 @@ canvas{max-height:200px}
     </div>
     <div class="active-filters" id="activeFiltersLabel" style="display:none;margin-top:4px"></div>
 
-    <!-- KPIs -->
+    <!-- 2. GRAFICOS -->
+
+    <!-- Áreas + Turnos -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card">
+        <div class="card-head"><span class="card-title" style="font-size:12px">Por Área</span><span style="font-size:9px;color:var(--text3)">toca para filtrar</span></div>
+        <div style="padding:0 12px 12px"><div id="barAreas" style="display:flex;flex-direction:column;gap:7px"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title" style="font-size:12px">Por Turno</span><span style="font-size:9px;color:var(--text3)">toca para filtrar</span></div>
+        <div style="padding:0 12px 12px"><div id="barTurnos" style="display:flex;flex-direction:column;gap:7px"></div></div>
+      </div>
+    </div>
+
+    <!-- Torta: distribución por cargo -->
+    <div class="card">
+      <div class="card-head"><span class="card-title">🥧 Distribución por Cargo</span><span style="font-size:9px;color:var(--text3)" id="cargoSubtitle"></span></div>
+      <div style="padding:0 14px 14px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex-shrink:0;position:relative;width:130px;height:130px">
+          <svg id="svgPie" width="130" height="130" style="transform:rotate(-90deg)"></svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+            <div id="pieCenterN" style="font-family:var(--font-display);font-size:24px;font-weight:900;color:var(--text);line-height:1">0</div>
+            <div style="font-size:8px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">total</div>
+          </div>
+        </div>
+        <div id="pieLegend" style="flex:1;min-width:120px;display:flex;flex-direction:column;gap:4px;padding-top:2px"></div>
+      </div>
+    </div>
+
+    <!-- Barras por cargo -->
+    <div class="card">
+      <div class="card-head"><span class="card-title">📊 Por Cargo / Puesto</span></div>
+      <div style="padding:0 14px 12px"><div id="barCargos" style="display:flex;flex-direction:column;gap:6px"></div></div>
+    </div>
+
+    <!-- Barras por supervisor -->
+    <div class="card">
+      <div class="card-head"><span class="card-title">👷 Por Supervisor</span><button onclick="setFilter('all')" style="background:none;border:none;font-size:9px;color:var(--ore);font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px">✕ LIMPIAR</button></div>
+      <div style="padding:0 14px 12px"><div id="barSups" style="display:flex;flex-direction:column;gap:6px"></div></div>
+    </div>
+
+    <!-- 3. CONTADORES KPI -->
     <div class="kpi-grid">
       <div class="kpi-card ore">
         <div class="kpi-val" id="dashTotal">0</div>
@@ -487,8 +528,8 @@ canvas{max-height:200px}
       </div>
     </div>
 
-    <!-- CONTADOR EN TIEMPO REAL -->
-    <div class="card" style="border:2px solid var(--ore);margin-bottom:0">
+    <!-- Contador en tiempo real -->
+    <div class="card" style="border:2px solid var(--ore)">
       <div style="display:flex;align-items:center;gap:14px;padding:14px 16px">
         <div style="width:11px;height:11px;border-radius:50%;background:var(--signal);flex-shrink:0;box-shadow:0 0 0 4px rgba(0,168,107,0.2);animation:pulse 1.5s infinite"></div>
         <div style="flex:1">
@@ -505,59 +546,7 @@ canvas{max-height:200px}
       </div>
     </div>
 
-    <!-- GRAFICOS: AREAS + TURNOS side by side -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-
-      <!-- AREAS -->
-      <div class="card">
-        <div class="card-head"><span class="card-title" style="font-size:12px">Por Área</span><span style="font-size:9px;color:var(--text3)">toca para filtrar</span></div>
-        <div style="padding:0 12px 12px">
-          <div id="barAreas" style="display:flex;flex-direction:column;gap:7px"></div>
-        </div>
-      </div>
-
-      <!-- TURNOS -->
-      <div class="card">
-        <div class="card-head"><span class="card-title" style="font-size:12px">Por Turno</span><span style="font-size:9px;color:var(--text3)">toca para filtrar</span></div>
-        <div style="padding:0 12px 12px">
-          <div id="barTurnos" style="display:flex;flex-direction:column;gap:7px"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- GRAFICO TORTA: distribución por cargo -->
-    <div class="card">
-      <div class="card-head"><span class="card-title">🥧 Distribución por Cargo</span><span style="font-size:9px;color:var(--text3)" id="cargoSubtitle"></span></div>
-      <div style="padding:0 14px 14px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
-        <!-- SVG pie chart -->
-        <div style="flex-shrink:0;position:relative;width:130px;height:130px">
-          <svg id="svgPie" width="130" height="130" style="transform:rotate(-90deg)"></svg>
-          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
-            <div id="pieCenterN" style="font-family:var(--font-display);font-size:24px;font-weight:900;color:var(--text);line-height:1">0</div>
-            <div style="font-size:8px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">total</div>
-          </div>
-        </div>
-        <!-- Legend -->
-        <div id="pieLegend" style="flex:1;min-width:120px;display:flex;flex-direction:column;gap:4px;padding-top:2px"></div>
-      </div>
-    </div>
-
-    <!-- GRAFICO BARRAS: Por cargo -->
-    <div class="card">
-      <div class="card-head"><span class="card-title">📊 Por Cargo / Puesto</span></div>
-      <div style="padding:0 14px 12px"><div id="barCargos" style="display:flex;flex-direction:column;gap:6px"></div></div>
-    </div>
-
-    <!-- GRAFICO BARRAS: Por supervisor -->
-    <div class="card">
-      <div class="card-head"><span class="card-title">👷 Por Supervisor</span><button onclick="setFilter('all')" style="background:none;border:none;font-size:9px;color:var(--ore);font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px">✕ LIMPIAR</button></div>
-      <div style="padding:0 14px 12px"><div id="barSups" style="display:flex;flex-direction:column;gap:6px"></div></div>
-    </div>
-
-
-
-
-    <!-- Herramientas -->
+    <!-- 4. HERRAMIENTAS -->
     <div>
       <div class="section-head"><span class="section-title">Herramientas</span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -574,7 +563,7 @@ canvas{max-height:200px}
         <div class="card" style="cursor:pointer;text-align:center;padding:18px" onclick="exportarExcel()">
           <div style="font-size:28px">📊</div>
           <div style="font-family:var(--font-display);font-weight:700;font-size:12px;letter-spacing:1px;margin-top:6px">Exportar Excel</div>
-          <div style="font-size:10px;color:var(--text3)">Registros filtrados</div>
+          <div style="font-size:10px;color:var(--text3)">Seleccionar fecha/turno</div>
         </div>
         <div class="card" style="cursor:pointer;text-align:center;padding:18px" onclick="openModal('modalPDF')">
           <div style="font-size:28px">📄</div>
@@ -583,7 +572,8 @@ canvas{max-height:200px}
         </div>
       </div>
     </div>
-    <!-- REGISTROS con scroll interno -->
+
+    <!-- 5. REGISTROS con scroll -->
     <div class="card">
       <div class="card-head">
         <span class="card-title" id="recordsTitle">Todos los registros</span>
@@ -591,6 +581,7 @@ canvas{max-height:200px}
       </div>
       <div id="allRecordList" style="max-height:420px;overflow-y:auto;padding:0 4px"></div>
     </div>
+
     <button class="btn-secondary" onclick="doLogout()">SALIR</button>
   </div>
 </div>
@@ -1253,7 +1244,7 @@ function applyDashFilters() {
 
   const lbl = document.getElementById('activeFiltersLabel');
   if (lbl) {
-    if (dashFilter!=='all') { lbl.style.display='block'; lbl.textContent=`Filtro: ${dashFilter} (${filtered.length} de ${dashAllRegs.length})`; }
+    if (dashFilter!=='all') { lbl.style.display='block'; lbl.textContent='Filtro: '+dashFilter+' ('+filtered.length+' de '+dashAllRegs.length+')'; }
     else lbl.style.display='none';
   }
 
@@ -1263,7 +1254,13 @@ function applyDashFilters() {
   document.getElementById('dashNoche').textContent  = filtered.filter(r=>r.turno==='Noche').length;
   document.getElementById('dashSups').textContent   = [...new Set(filtered.map(r=>r.dniSupervisor))].length;
 
-  // Count areas from ALL regs (not filtered)
+  // Enriquecer cargo desde Personal antes de renderizar
+  const personal = getPersonal();
+  const cm = {};
+  personal.forEach(p=>{ cm[p.dni]=p.cargo||''; });
+  dashAllRegs.forEach(r=>{ if(!r.cargo) r.cargo=cm[r.dni]||''; });
+
+  // Count areas
   let chan=0,mol=0,peb=0;
   dashAllRegs.forEach(r=>{
     const a=r._area||'';
@@ -1277,9 +1274,9 @@ function applyDashFilters() {
 
   renderBarAreas(chan,mol,peb,total);
   renderBarTurnos(dia,noche,total);
-  renderPie(filtered);
-  renderBarCargos(filtered);
-  renderBarSups(filtered,sups);
+  renderPie(filtered.length ? filtered : dashAllRegs);
+  renderBarCargos(filtered.length ? filtered : dashAllRegs);
+  renderBarSups(dashAllRegs, sups);
   renderRecordsList(filtered);
 }
 
@@ -1351,8 +1348,32 @@ function renderPie(filtered) {
   if (sub) sub.textContent = entries.length ? entries.length+' cargos' : '';
 
   if (!entries.length) {
-    svg.innerHTML='';
-    if (leg) leg.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0">Sin datos de cargo</div>';
+    // Try grouping by turno instead
+    const byTurno = {};
+    filtered.forEach(r=>{ const t=r.turno||'Sin turno'; byTurno[t]=(byTurno[t]||0)+1; });
+    const tEntries = Object.entries(byTurno);
+    if (tEntries.length) {
+      // Redraw using turno as substitute
+      const tot2 = filtered.length;
+      if(cen) cen.textContent=tot2;
+      if(sub) sub.textContent='por turno';
+      let sa=0; let paths2='';
+      tEntries.forEach(([t,n],i)=>{
+        const frac=n/tot2, angle=frac*2*Math.PI, ea=sa+angle;
+        const x1=cx+R*Math.cos(sa),y1=cy+R*Math.sin(sa),x2=cx+R*Math.cos(ea),y2=cy+R*Math.sin(ea);
+        const ix1=cx+r*Math.cos(sa),iy1=cy+r*Math.sin(sa),ix2=cx+r*Math.cos(ea),iy2=cy+r*Math.sin(ea);
+        const lg=angle>Math.PI?1:0;
+        const col=PIE_COLORS[i%PIE_COLORS.length];
+        paths2+=`<path d="M${x1},${y1} A${R},${R} 0 ${lg},1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${lg},0 ${ix1},${iy1} Z" fill="${col}" stroke="#fff" stroke-width="1.5"><title>${t}: ${n}</title></path>`;
+        sa=ea;
+      });
+      svg.innerHTML=paths2;
+      if(leg) leg.innerHTML=tEntries.map(([t,n],i)=>`<div style="display:flex;align-items:center;gap:6px;padding:3px 4px"><div style="width:9px;height:9px;border-radius:50%;background:${PIE_COLORS[i%PIE_COLORS.length]};flex-shrink:0"></div><div style="flex:1;font-size:10px;color:var(--text2)">${t}</div><b style="font-family:var(--font-display);font-size:13px">${n}</b><span style="font-size:9px;color:var(--text3);width:26px;text-align:right">${Math.round(n/tot2*100)}%</span></div>`).join('');
+      return;
+    }
+    svg.innerHTML='<circle cx="65" cy="65" r="55" fill="#E2E6EA"/><circle cx="65" cy="65" r="30" fill="#F5F7FA"/>';
+    if (leg) leg.innerHTML='<div style="font-size:11px;color:var(--text3);padding:16px 0;font-style:italic">Carga Personal para ver distribución por cargo</div>';
+    if (cen) cen.textContent='0';
     return;
   }
 
@@ -1406,7 +1427,26 @@ function renderBarCargos(filtered) {
   const maxV = entries.length ? entries[0][1] : 1;
   const total = filtered.length || 1;
 
-  if (!entries.length) { el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0">Sin datos</div>'; return; }
+  if (!entries.length) {
+    // Fallback: show by supervisor name
+    const bySup = {};
+    filtered.forEach(r=>{ const k=r.nombreSupervisor||r.dniSupervisor||'Sin supervisor'; bySup[k]=(bySup[k]||0)+1; });
+    const supEntries = Object.entries(bySup).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    if (!supEntries.length) { el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0;text-align:center">Sin registros</div>'; return; }
+    const maxSup = supEntries[0][1];
+    el.innerHTML = supEntries.map(([s,n],i)=>{
+      const pct=Math.round(n/maxSup*100);
+      const col=PIE_COLORS[i%PIE_COLORS.length];
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px">
+        <div style="font-size:10px;color:var(--text2);width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">${s}</div>
+        <div style="flex:1;height:7px;background:var(--border);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+        </div>
+        <b style="font-family:var(--font-display);font-size:13px;color:${col};flex-shrink:0;width:22px;text-align:right">${n}</b>
+      </div>`;
+    }).join('');
+    return;
+  }
 
   el.innerHTML = entries.map(([c,n],i)=>{
     const pct = Math.round(n/maxV*100);
@@ -1435,7 +1475,32 @@ function renderBarSups(filtered, sups) {
   window._supsFilt = supsFilt;
   const maxV = supsFilt.length ? byDni[supsFilt[0].dni] : 1;
 
-  if (!supsFilt.length) { el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0">Sin datos</div>'; return; }
+  // If no supervisor data in cache, build from records directly
+  if (!supsFilt.length) {
+    const byNombre = {};
+    filtered.forEach(r=>{
+      const k = r.nombreSupervisor||r.dniSupervisor||'Desconocido';
+      byNombre[k]=(byNombre[k]||0)+1;
+    });
+    const items = Object.entries(byNombre).sort((a,b)=>b[1]-a[1]);
+    if (!items.length) { el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:16px 0;text-align:center;font-style:italic">Sin supervisores con registros</div>'; return; }
+    const maxV2 = items[0][1];
+    el.innerHTML = items.map(([nombre,n])=>{
+      const pct=Math.round(n/maxV2*100);
+      const ini=nombre.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'??';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#1A4E8A;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:12px;font-weight:700;color:white;flex-shrink:0">${ini}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nombre}</div>
+          <div style="height:5px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:3px">
+            <div style="height:100%;width:${pct}%;background:#1A4E8A;border-radius:99px"></div>
+          </div>
+        </div>
+        <b style="font-family:var(--font-display);font-size:16px;color:#1A4E8A;flex-shrink:0">${n}</b>
+      </div>`;
+    }).join('');
+    return;
+  }
 
   el.innerHTML = supsFilt.map((s,i)=>{
     const n   = byDni[s.dni]||0;
@@ -2184,8 +2249,9 @@ function exportarExcel(){
   const all = getRegistros();
   const fechas = [...new Set(all.map(r=>r.fecha).filter(Boolean))].sort().reverse();
   const sel = document.getElementById('xlsxFecha');
+  const currentDash = dashDateVal || getTodayStr();
   sel.innerHTML = '<option value="all">📅 Todas las fechas</option>' +
-    fechas.map(f=>`<option value="${f}" ${f===getTodayStr()?'selected':''}>${f}</option>`).join('');
+    fechas.map(f=>`<option value="${f}" ${f===currentDash?'selected':''}>${f}</option>`).join('');
   // Populate supervisor select
   const sups = getSupervisores().filter(s=>s.activo!==false);
   const supSel = document.getElementById('xlsxSup');
