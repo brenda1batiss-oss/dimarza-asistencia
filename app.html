@@ -491,53 +491,75 @@ canvas{max-height:200px}
       </div>
     </div>
 
-    <!-- Áreas — clickables -->
-    <div>
-      <div class="section-head"><span class="section-title">Por Área</span><span style="font-size:10px;color:var(--text3)">Toca para filtrar</span></div>
-      <div class="area-grid">
-        <div class="area-card chan" style="cursor:pointer" onclick="setFilter('Chancado',document.querySelector('[data-filter=Chancado]'))">
-          <div class="area-name">CHANCADO</div><div class="area-count" id="countChan">0</div>
+    <!-- CONTADOR EN TIEMPO REAL -->
+    <div class="card" style="border:2px solid var(--ore)">
+      <div class="card-body" style="display:flex;align-items:center;gap:14px;padding:14px 16px">
+        <div style="width:12px;height:12px;border-radius:50%;background:var(--signal);flex-shrink:0;box-shadow:0 0 0 4px rgba(0,168,107,0.2);animation:pulse 1.5s infinite"></div>
+        <div style="flex:1">
+          <div style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase">EN PLANTA AHORA</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">
+            <div id="realtimeCount" style="font-family:var(--font-display);font-size:48px;font-weight:900;line-height:1;color:var(--ore)">0</div>
+            <div style="font-size:13px;color:var(--text3)">trabajadores</div>
+          </div>
         </div>
-        <div class="area-card mol" style="cursor:pointer" onclick="setFilter('Molienda',document.querySelector('[data-filter=Molienda]'))">
-          <div class="area-name">MOLIENDA</div><div class="area-count" id="countMol">0</div>
-        </div>
-        <div class="area-card peb" style="cursor:pointer" onclick="setFilter('Pebles',document.querySelector('[data-filter=Pebles]'))">
-          <div class="area-name">PEBLES</div><div class="area-count" id="countPeb">0</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Turnos — clickables -->
-    <div>
-      <div class="section-head"><span class="section-title">Por Turno</span><span style="font-size:10px;color:var(--text3)">Toca para filtrar</span></div>
-      <div class="turno-grid">
-        <div class="turno-card dia" style="cursor:pointer" onclick="setFilter('Día',document.querySelector('[data-filter=Día]'))">
-          <span class="turno-icon">☀️</span>
-          <div class="turno-info"><div class="turno-name">DÍA</div><div class="turno-count" id="turnoDia">0</div></div>
-        </div>
-        <div class="turno-card noche" style="cursor:pointer" onclick="setFilter('Noche',document.querySelector('[data-filter=Noche]'))">
-          <span class="turno-icon">🌙</span>
-          <div class="turno-info"><div class="turno-name">NOCHE</div><div class="turno-count" id="turnoNoche">0</div></div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-display);letter-spacing:1px">ACTUALIZADO</div>
+          <div id="realtimeTime" style="font-family:var(--font-display);font-size:12px;font-weight:700;color:var(--text2);margin-top:2px">--:--</div>
+          <button onclick="renderDash()" style="margin-top:6px;background:var(--ore-light);border:1px solid var(--ore);border-radius:var(--r);padding:3px 10px;font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:1px;color:var(--ore);cursor:pointer">&#x21BA; SYNC</button>
         </div>
       </div>
     </div>
 
-    <!-- Gráfico por cargo -->
+    <!-- GRAFICO AREAS -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Por Area</span>
+        <span style="font-size:10px;color:var(--text3)">Toca para filtrar</span>
+      </div>
+      <div class="card-body" style="display:flex;align-items:center;gap:12px;padding:12px 16px">
+        <div style="position:relative;width:140px;height:140px;flex-shrink:0">
+          <canvas id="chartAreas"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+            <div id="areaCenterVal" style="font-family:var(--font-display);font-size:28px;font-weight:900;line-height:1;color:var(--text)">0</div>
+            <div id="areaCenterLabel" style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">total</div>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px" id="areaLegend"></div>
+      </div>
+    </div>
+
+    <!-- GRAFICO TURNOS -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Por Turno</span>
+        <span style="font-size:10px;color:var(--text3)">Toca para filtrar</span>
+      </div>
+      <div class="card-body" style="padding:12px 16px">
+        <canvas id="chartTurnos" style="max-height:100px"></canvas>
+      </div>
+    </div>
+
+    <!-- GRAFICO SUPERVISORES -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Por Supervisor</span>
+        <button onclick="setFilter('all',document.querySelector('[data-filter=all]'))" style="background:none;border:none;font-size:10px;color:var(--ore);font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px">LIMPIAR</button>
+      </div>
+      <div class="card-body" style="padding:8px 16px">
+        <canvas id="chartSups"></canvas>
+      </div>
+      <div class="card-body" style="padding:0 16px;padding-bottom:8px"><div id="supStatList"></div></div>
+    </div>
+
+    <!-- GRAFICO CARGOS / PUESTOS -->
     <div class="card">
       <div class="card-head">
         <span class="card-title">Por Cargo / Puesto</span>
         <span style="font-size:10px;color:var(--text3)" id="cargoSubtitle"></span>
       </div>
-      <div class="card-body"><div id="cargoList"></div></div>
-    </div>
-
-    <!-- Por supervisor -->
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">Por Supervisor</span>
-        <button onclick="setFilter('all',document.querySelector('[data-filter=all]'))" style="background:none;border:none;font-size:10px;color:var(--ore);font-family:var(--font-display);font-weight:700;cursor:pointer;letter-spacing:1px" id="clearFilterBtn" style="display:none">✕ LIMPIAR</button>
+      <div class="card-body" style="padding:8px 16px">
+        <canvas id="chartCargos"></canvas>
       </div>
-      <div class="card-body" style="padding:0 16px"><div id="supStatList"></div></div>
     </div>
 
     <!-- Registros filtrados -->
@@ -1080,11 +1102,20 @@ async function renderHistorial() {
 }
 
 // ══════════════════════════════════════════════════════
-// ADMIN DASHBOARD — Interactive
+// ADMIN DASHBOARD — Interactive + Charts
 // ══════════════════════════════════════════════════════
-let dashAllRegs   = [];   // full dataset for current date
-let dashFilter    = 'all'; // 'all' | 'Chancado' | 'Molienda' | 'Pebles' | 'Día' | 'Noche'
+let dashAllRegs   = [];
+let dashFilter    = 'all';
 let dashDateVal   = '';
+let realtimeTimer = null;
+let charts        = {};   // { areas, turnos, sups, cargos }
+
+const AREA_COLORS  = { Chancado:'#7C3AED', Molienda:'#0891B2', Pebles:'#D97706', '':'#A0AEC0' };
+const TURNO_COLORS = { 'Día':'#F59E0B', 'Noche':'#3B82F6' };
+
+function destroyChart(key) {
+  if (charts[key]) { try { charts[key].destroy(); } catch(e){} charts[key] = null; }
+}
 
 function resetDashDate() {
   document.getElementById('dashDatePicker').value = getTodayStr();
@@ -1098,6 +1129,9 @@ async function renderDash() {
   dashDateVal = picker.value;
   document.getElementById('dashDate2').textContent = dashDateVal;
 
+  // Start realtime counter
+  startRealtimeCounter();
+
   let all = [];
   if (isOnline) {
     try {
@@ -1106,39 +1140,61 @@ async function renderDash() {
       if (Array.isArray(data)) all = data.map(r=>normReg(r)).filter(r=>r.fecha===dashDateVal);
     } catch(e) { all = getRegistros().filter(r=>r.fecha===dashDateVal); }
   } else { all = getRegistros().filter(r=>r.fecha===dashDateVal); }
-  dashAllRegs = all;
 
-  // Build area map
   const sups = getSupervisores();
   const areaMap = {};
   sups.forEach(s=>{ areaMap[s.dni]=s.area||''; });
-  dashAllRegs.forEach(r=>{ r._area = areaMap[r.dniSupervisor]||''; });
+  all.forEach(r=>{ r._area = areaMap[r.dniSupervisor]||''; });
+  dashAllRegs = all;
 
-  // Counts for area cards + turno cards (always from full dataset)
-  let chan=0,mol=0,peb=0;
-  dashAllRegs.forEach(r=>{
-    const a=r._area.toLowerCase();
-    if(a.includes('chan')) chan++;
-    else if(a.includes('mol')) mol++;
-    else if(a.includes('peb')) peb++;
-  });
-  document.getElementById('countChan').textContent = chan;
-  document.getElementById('countMol').textContent  = mol;
-  document.getElementById('countPeb').textContent  = peb;
-  document.getElementById('turnoDia').textContent   = dashAllRegs.filter(r=>r.turno==='Día').length;
-  document.getElementById('turnoNoche').textContent = dashAllRegs.filter(r=>r.turno==='Noche').length;
-
+  // Update realtime counter
+  updateRealtimeCounter(all.length);
   applyDashFilters();
 }
 
+function startRealtimeCounter() {
+  if (realtimeTimer) clearInterval(realtimeTimer);
+  realtimeTimer = setInterval(async () => {
+    if (document.getElementById('dashScreen')?.classList.contains('active') && isOnline) {
+      try {
+        const res  = await fetch(SB_REG, {cache:'no-store'});
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const today = getTodayStr();
+          const todayRegs = data.map(r=>normReg(r)).filter(r=>r.fecha===today);
+          const sups = getSupervisores();
+          const areaMap = {};
+          sups.forEach(s=>{ areaMap[s.dni]=s.area||''; });
+          todayRegs.forEach(r=>{ r._area = areaMap[r.dniSupervisor]||''; });
+          dashAllRegs = todayRegs;
+          updateRealtimeCounter(todayRegs.length);
+          applyDashFilters();
+        }
+      } catch(e) {}
+    }
+  }, 60000); // refresh every 60s
+}
+
+function updateRealtimeCounter(n) {
+  const el = document.getElementById('realtimeCount');
+  const tel = document.getElementById('realtimeTime');
+  if (!el) return;
+  // Animate counter
+  const current = parseInt(el.textContent) || 0;
+  if (current === n) { if (tel) tel.textContent = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}); return; }
+  const step = n > current ? 1 : -1;
+  let v = current;
+  const timer = setInterval(() => {
+    v += step;
+    el.textContent = v;
+    if (v === n) clearInterval(timer);
+  }, Math.max(10, Math.min(50, 500/Math.abs(n-current))));
+  if (tel) tel.textContent = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+}
+
 function setFilter(val, chipEl) {
-  // If clicking same active filter → reset to all
-  if (dashFilter === val && val !== 'all') {
-    dashFilter = 'all';
-    chipEl = document.querySelector('[data-filter=all]');
-  } else {
-    dashFilter = val;
-  }
+  if (dashFilter === val && val !== 'all') { dashFilter='all'; chipEl=document.querySelector('[data-filter=all]'); }
+  else { dashFilter = val; }
   document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
   if (chipEl) chipEl.classList.add('active');
   applyDashFilters();
@@ -1152,90 +1208,259 @@ function applyDashFilters() {
   let filtered = dashAllRegs;
   if (dashFilter !== 'all') {
     if (['Chancado','Molienda','Pebles'].includes(dashFilter)) {
-      filtered = dashAllRegs.filter(r=>(areaMap[r.dniSupervisor]||'').toLowerCase().includes(dashFilter.toLowerCase()));
-    } else if (dashFilter==='Día' || dashFilter==='Noche') {
+      filtered = dashAllRegs.filter(r=>(r._area||'').toLowerCase().includes(dashFilter.toLowerCase()));
+    } else if (dashFilter==='Día'||dashFilter==='Noche') {
       filtered = dashAllRegs.filter(r=>r.turno===dashFilter);
     }
   }
 
-  // Active filter label
   const lbl = document.getElementById('activeFiltersLabel');
-  if (dashFilter !== 'all') {
+  if (dashFilter!=='all') {
     lbl.style.display='block';
-    lbl.textContent = `Mostrando: ${dashFilter} (${filtered.length} de ${dashAllRegs.length} registros)`;
-  } else {
-    lbl.style.display='none';
-  }
+    lbl.textContent=`Mostrando: ${dashFilter} (${filtered.length} de ${dashAllRegs.length})`;
+  } else { lbl.style.display='none'; }
 
   // KPIs
-  const dia   = filtered.filter(r=>r.turno==='Día').length;
-  const noche = filtered.filter(r=>r.turno==='Noche').length;
   document.getElementById('dashTotal').textContent = filtered.length;
-  document.getElementById('dashDia').textContent   = dia;
-  document.getElementById('dashNoche').textContent = noche;
-  const supsActivos = [...new Set(filtered.map(r=>r.dniSupervisor))].length;
-  document.getElementById('dashSups').textContent = supsActivos;
+  document.getElementById('dashDia').textContent   = filtered.filter(r=>r.turno==='Día').length;
+  document.getElementById('dashNoche').textContent = filtered.filter(r=>r.turno==='Noche').length;
+  document.getElementById('dashSups').textContent  = [...new Set(filtered.map(r=>r.dniSupervisor))].length;
 
-  // Cargo bars (clickable)
+  // Counts
+  let chan=0,mol=0,peb=0,sinArea=0;
+  dashAllRegs.forEach(r=>{
+    const a=(r._area||'').toLowerCase();
+    if(a.includes('chan')) chan++;
+    else if(a.includes('mol')) mol++;
+    else if(a.includes('peb')) peb++;
+    else sinArea++;
+  });
+  const dia   = dashAllRegs.filter(r=>r.turno==='Día').length;
+  const noche = dashAllRegs.filter(r=>r.turno==='Noche').length;
+
+  renderChartAreas(chan,mol,peb,sinArea);
+  renderChartTurnos(dia,noche);
+  renderChartSups(filtered,sups,areaMap);
+  renderChartCargos(filtered);
+  renderRecordsList(filtered,sups,areaMap);
+}
+
+// ── CHART: AREAS (Doughnut) ──
+function renderChartAreas(chan,mol,peb,sinArea) {
+  destroyChart('areas');
+  const ctx = document.getElementById('chartAreas');
+  if (!ctx) return;
+  const total = chan+mol+peb+sinArea;
+  document.getElementById('areaCenterVal').textContent = dashAllRegs.length;
+  document.getElementById('areaCenterLabel').textContent = 'total';
+
+  const data = [chan,mol,peb];
+  const labels = ['Chancado','Molienda','Pebles'];
+  const colors = ['#7C3AED','#0891B2','#D97706'];
+
+  charts.areas = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff', hoverOffset:6 }]
+    },
+    options: {
+      cutout:'65%', responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{
+        label: ctx => ` ${ctx.label}: ${ctx.raw} (${total?Math.round(ctx.raw/total*100):0}%)`
+      }}},
+      onClick: (evt,els) => {
+        if (!els.length) return;
+        const lbl = labels[els[0].index];
+        setFilter(lbl, document.querySelector(`[data-filter=${lbl}]`));
+      }
+    }
+  });
+
+  // Legend
+  document.getElementById('areaLegend').innerHTML = [
+    {label:'Chancado', val:chan, color:'#7C3AED', filter:'Chancado'},
+    {label:'Molienda', val:mol, color:'#0891B2', filter:'Molienda'},
+    {label:'Pebles',   val:peb, color:'#D97706', filter:'Pebles'},
+  ].map(a=>`
+    <div onclick="setFilter('${a.filter}',document.querySelector('[data-filter=${a.filter}]'))"
+         style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 8px;border-radius:6px;transition:background 150ms"
+         onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+      <div style="width:10px;height:10px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
+      <div style="flex:1;font-size:12px;color:var(--text2)">${a.label}</div>
+      <div style="font-family:var(--font-display);font-size:18px;font-weight:900;color:var(--text)">${a.val}</div>
+    </div>`).join('');
+}
+
+// ── CHART: TURNOS (Horizontal bar) ──
+function renderChartTurnos(dia,noche) {
+  destroyChart('turnos');
+  const ctx = document.getElementById('chartTurnos');
+  if (!ctx) return;
+  charts.turnos = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['☀ Turno Día','🌙 Turno Noche'],
+      datasets:[{
+        data:[dia,noche],
+        backgroundColor:['rgba(245,158,11,0.85)','rgba(59,130,246,0.85)'],
+        borderColor:['#F59E0B','#3B82F6'],
+        borderWidth:2, borderRadius:6
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{
+        label:c=>` ${c.raw} trabajadores`
+      }}},
+      scales:{
+        x:{ beginAtZero:true, ticks:{stepSize:1,font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
+        y:{ ticks:{font:{size:11,weight:'bold'}} }
+      },
+      onClick:(evt,els)=>{
+        if(!els.length) return;
+        const turno = els[0].index===0?'Día':'Noche';
+        setFilter(turno, document.querySelector(`[data-filter="${turno}"]`));
+      }
+    }
+  });
+  ctx.style.height='90px';
+}
+
+// ── CHART: SUPERVISORES (Horizontal bar) ──
+function renderChartSups(filtered,sups,areaMap) {
+  destroyChart('sups');
+  const ctx = document.getElementById('chartSups');
+  if (!ctx) return;
+
+  const bySuper = {};
+  filtered.forEach(r=>{ bySuper[r.dniSupervisor]=(bySuper[r.dniSupervisor]||0)+1; });
+
+  const supsFilt = sups.filter(s=>bySuper[s.dni]).sort((a,b)=>(bySuper[b.dni]||0)-(bySuper[a.dni]||0)).slice(0,8);
+  window._supsFilt = supsFilt;
+
+  if (!supsFilt.length) {
+    document.getElementById('supStatList').innerHTML='<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">Sin registros</div>';
+    return;
+  }
+
+  const labels = supsFilt.map(s=>s.nombre.split(' ')[0]+' '+( s.nombre.split(' ')[2]||s.nombre.split(' ')[1]||''));
+  const values = supsFilt.map(s=>bySuper[s.dni]||0);
+  const bgColors = supsFilt.map(s=>{
+    const a=s.area||'';
+    if(a==='Chancado') return 'rgba(124,58,237,0.75)';
+    if(a==='Molienda') return 'rgba(8,145,178,0.75)';
+    if(a==='Pebles')   return 'rgba(217,119,6,0.75)';
+    return 'rgba(26,78,138,0.75)';
+  });
+
+  charts.sups = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{ data:values, backgroundColor:bgColors, borderRadius:5, borderWidth:0 }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          title: items => supsFilt[items[0].dataIndex].nombre,
+          label: c=>`${c.raw} trabajadores registrados`
+        }}
+      },
+      scales:{
+        x:{ beginAtZero:true, ticks:{stepSize:1,font:{size:10}}, grid:{color:'rgba(0,0,0,0.04)'} },
+        y:{ ticks:{font:{size:10}} }
+      },
+      onClick:(evt,els)=>{ if(els.length) filterBySupIdx(els[0].dataIndex); }
+    }
+  });
+  ctx.style.height = Math.max(80, supsFilt.length * 36) + 'px';
+
+  // Mini list below chart
+  document.getElementById('supStatList').innerHTML = supsFilt.map((s,i)=>{
+    const ini = s.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const av  = renderAvatarEl(s.dni, ini, 36, 'var(--blue)');
+    return `<div class="sup-row" style="cursor:pointer" onclick="filterBySupIdx(${i})">
+      <div class="sup-av">${av}</div>
+      <div class="sup-info">
+        <div class="sup-name">${s.nombre}</div>
+        <div class="sup-meta">${getAreaBadge(s.area)} ${getTurnoBadge(s.turno)}</div>
+      </div>
+      <div style="text-align:right"><div class="sup-count">${bySuper[s.dni]||0}</div><div style="font-size:9px;color:var(--text3)">reg.</div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── CHART: CARGOS (Horizontal bar) ──
+function renderChartCargos(filtered) {
+  destroyChart('cargos');
+  const ctx = document.getElementById('chartCargos');
+  if (!ctx) return;
+
   const cargos = {};
   filtered.forEach(r=>{ if(r.cargo) cargos[r.cargo]=(cargos[r.cargo]||0)+1; });
-  const maxC = Math.max(1,...Object.values(cargos));
-  const cargoEntries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  // Store cargo list for click filtering
-  window._cargoEntries = cargoEntries;
-  document.getElementById('cargoList').innerHTML = cargoEntries.length
-    ? cargoEntries.map(([c,n],i)=>`
-      <div class="cargo-row" style="cursor:pointer" onclick="filterByCargo(window._cargoEntries[${i}][0])">
-        <div class="cargo-name" title="${c}">${c}</div>
-        <div class="cargo-bar-wrap"><div class="cargo-bar" style="width:${(n/maxC)*100}%"></div></div>
-        <div class="cargo-count">${n}</div>
-      </div>`).join('')
-    : '<div style="color:var(--text3);font-size:12px;padding:8px 0">Sin datos</div>';
-  document.getElementById('cargoSubtitle').textContent = cargoEntries.length ? cargoEntries.length+' puestos' : '';
+  const entries = Object.entries(cargos).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  window._cargoEntries = entries;
 
-  // Store sups list for click filtering
-  const supsFilt = sups.filter(s=>bySuper[s.dni]).sort((a,b)=>(bySuper[b.dni]||0)-(bySuper[a.dni]||0));
-  window._supsFilt = supsFilt;
-  document.getElementById('supStatList').innerHTML = supsFilt
-    .map((s,i)=>{
-      const ini = s.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      const av  = renderAvatarEl(s.dni, ini, 40, 'var(--blue)');
-      return `<div class="sup-row" style="cursor:pointer" onclick="filterBySupIdx(${i})">
-        <div class="sup-av">${av}</div>
-        <div class="sup-info">
-          <div class="sup-name">${s.nombre}</div>
-          <div class="sup-meta">${getAreaBadge(s.area)} ${getTurnoBadge(s.turno)}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="sup-count">${bySuper[s.dni]||0}</div>
-          <div style="font-size:9px;color:var(--text3)">registros</div>
-        </div>
-      </div>`;
-    }).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px 0">Sin registros</div>';
+  const subtitle = document.getElementById('cargoSubtitle');
+  if (subtitle) subtitle.textContent = entries.length ? entries.length+' puestos' : '';
 
-  // Records table
-  const label = dashFilter==='all' ? 'Todos los registros' : `Filtrado: ${dashFilter}`;
+  if (!entries.length) { ctx.style.height='40px'; return; }
+
+  const labels = entries.map(([c])=>c);
+  const values = entries.map(([,n])=>n);
+  const maxV   = Math.max(...values);
+
+  // Gradient colors based on rank
+  const palette = ['#CC1010','#D63E3E','#E06060','#E88080','#F0A0A0',
+                   '#1A4E8A','#2563AB','#3B7DD8','#6FA3E8','#9DC0F0'];
+
+  charts.cargos = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        data:values,
+        backgroundColor: entries.map((_,i)=>palette[i]||'#A0AEC0'),
+        borderRadius:5, borderWidth:0
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{ label:c=>`${c.raw} personas · ${Math.round(c.raw/filtered.length*100)}% del total` }}
+      },
+      scales:{
+        x:{ beginAtZero:true, ticks:{stepSize:1,font:{size:10}}, grid:{color:'rgba(0,0,0,0.04)'} },
+        y:{ ticks:{font:{size:10}} }
+      },
+      onClick:(evt,els)=>{ if(els.length) filterByCargo(window._cargoEntries[els[0].dataIndex][0]); }
+    }
+  });
+  ctx.style.height = Math.max(80, entries.length * 32) + 'px';
+}
+
+// ── RECORDS LIST ──
+function renderRecordsList(filtered,sups,areaMap) {
+  const label = dashFilter==='all'?'Todos los registros':`Filtrado: ${dashFilter}`;
   document.getElementById('recordsTitle').textContent = label;
   document.getElementById('allCount').textContent = filtered.length+' registros';
   document.getElementById('allRecordList').innerHTML = filtered.length
     ? [...filtered].reverse().map(r=>recordHTML(r)).join('')
     : '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin registros</div>';
-
-  // Update PDF label
-  const pdfLbl = document.getElementById('pdfFilterLabel');
-  if (pdfLbl) pdfLbl.textContent = dashFilter==='all' ? 'Todos los registros' : dashFilter + ` (${filtered.length} reg.)`;
 }
 
-// Cargo-level filter (temporary inline filter, not a chip)
 function filterByCargo(cargo) {
-  // toggle off if same
-  if (dashFilter === cargo) { setFilter('all', document.querySelector('[data-filter=all]')); return; }
+  if (dashFilter===cargo) { setFilter('all',document.querySelector('[data-filter=all]')); return; }
   dashFilter = cargo;
   document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
   applyDashFilters();
-  const lbl = document.getElementById('activeFiltersLabel');
+  const lbl=document.getElementById('activeFiltersLabel');
   lbl.style.display='block';
-  lbl.textContent = `Filtrado por cargo: ${cargo}`;
+  lbl.textContent=`Filtrado por cargo: ${cargo}`;
   showToast('Filtrado: '+cargo);
 }
 
@@ -1244,17 +1469,15 @@ function filterBySupIdx(i) {
   if (s) filterBySup(s.dni, s.nombre);
 }
 function filterBySup(dni, nombre) {
-  const areaMap = {};
-  getSupervisores().forEach(s=>{ areaMap[s.dni]=s.area||''; });
   const regs = dashAllRegs.filter(r=>r.dniSupervisor===dni);
-  document.getElementById('recordsTitle').textContent = 'Registros de '+nombre;
-  document.getElementById('allCount').textContent = regs.length+' registros';
+  document.getElementById('recordsTitle').textContent='Registros de '+nombre;
+  document.getElementById('allCount').textContent=regs.length+' registros';
   document.getElementById('allRecordList').innerHTML = regs.length
     ? [...regs].reverse().map(r=>recordHTML(r)).join('')
     : '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin registros</div>';
-  const lbl = document.getElementById('activeFiltersLabel');
+  const lbl=document.getElementById('activeFiltersLabel');
   lbl.style.display='block';
-  lbl.textContent = `Supervisor: ${nombre} · ${regs.length} registros`;
+  lbl.textContent=`Supervisor: ${nombre} · ${regs.length} registros`;
 }
 
 // ══════════════════════════════════════════════════════
