@@ -751,7 +751,7 @@ canvas{max-height:200px}
           <option value="all">👷 Todos los supervisores</option>
         </select>
       </div>
-      <button onclick="doExportarExcel()" style="background:var(--signal);color:white;border:none;border-radius:var(--r-lg);padding:14px;font-family:var(--font-display);font-weight:800;font-size:13px;letter-spacing:1px;cursor:pointer;width:100%">⬇ DESCARGAR EXCEL</button>
+      <button id="btnDescExcel" onclick="this.textContent='⏳ Cargando...';this.disabled=true;doExportarExcel().finally(()=>{const b=document.getElementById('btnDescExcel');if(b){b.textContent='⬇ DESCARGAR EXCEL';b.disabled=false;}})" style="background:var(--signal);color:white;border:none;border-radius:var(--r-lg);padding:14px;font-family:var(--font-display);font-weight:800;font-size:13px;letter-spacing:1px;cursor:pointer;width:100%">⬇ DESCARGAR EXCEL</button>
     </div>
   </div>
 </div>
@@ -2260,12 +2260,26 @@ function exportarExcel(){
   openModal('modalExcel');
 }
 
-function doExportarExcel(){
+async function doExportarExcel(){
   const fecha  = document.getElementById('xlsxFecha').value;
   const turno  = document.getElementById('xlsxTurno').value;
   const sup    = document.getElementById('xlsxSup').value;
 
+  // Combinar localStorage + SheetBest (igual que renderDash)
   let regs = getRegistros();
+  if (isOnline) {
+    try {
+      const res  = await fetch(SB_REG, {cache:'no-store'});
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) {
+        const sbRegs = data.map(r=>normReg(r));
+        const sbKeys = new Set(sbRegs.map(r=>r.dni+'|'+r.fecha+'|'+r.hora));
+        const localOnly = regs.filter(r=>!sbKeys.has(r.dni+'|'+r.fecha+'|'+r.hora));
+        regs = [...sbRegs, ...localOnly];
+      }
+    } catch(e) { /* usar solo localStorage */ }
+  }
+
   if(fecha!=='all') regs = regs.filter(r=>r.fecha===fecha);
   if(turno!=='all') regs = regs.filter(r=>r.turno===turno);
   if(sup!=='all')   regs = regs.filter(r=>r.dniSupervisor===sup);
